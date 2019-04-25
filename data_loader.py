@@ -1,16 +1,25 @@
 import os
-import random
-
-import PIL.Image as Image
 import torch
-import torchvision.transforms as transforms
+import random
 import numpy as np
+import PIL.Image as Image
+import torchvision.transforms as transforms
+
 
 class MetaDataset:
     def __init__(self, root_dir, shots, evals, no_classes, crop=128,
                  transform=transforms.Compose([transforms.RandomResizedCrop(128),
                                                transforms.ToTensor(),
                                                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])):
+        """
+        Creates a new instance of the MetaDataset class
+        :param root_dir: string, images root directory
+        :param shots: int k, for the k-shot classification task (i.e., 1-shot, 5-shot)
+        :param evals: int, number of examples to use for testing purposes
+        :param no_classes: int, number of classes to work with
+        :param crop: int, square dim to crop images to
+        :param transform: transforms.Compose() object to be applied to each image
+        """
         self.root_dir = root_dir
         self.shots = shots
         self.evals = evals
