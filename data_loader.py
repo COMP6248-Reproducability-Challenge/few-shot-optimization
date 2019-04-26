@@ -1,13 +1,9 @@
 import os
-import torch
 import random
-import numpy as np
+
 import PIL.Image as Image
-<<<<<<< HEAD:dataloader.py
 import numpy as np
 import torch
-=======
->>>>>>> e66e7412e2bfd4c64364ef4f1f6e9be765534522:data_loader.py
 import torchvision.transforms as transforms
 
 
@@ -17,14 +13,6 @@ class MetaDataset:
                                                transforms.ToTensor(),
                                                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])):
         """
-<<<<<<< HEAD:dataloader.py
-        :param root_dir: directory containing folders for each class
-        :param shots: number items used for training
-        :param evals: number of items used for evaluation to get acc and loss
-        :param no_classes: number of classes to learn to differentiate
-        :param crop: size to crop image down to
-        :param transform: transform function for processing images
-=======
         Creates a new instance of the MetaDataset class
         :param root_dir: string, images root directory
         :param shots: int k, for the k-shot classification task (i.e., 1-shot, 5-shot)
@@ -32,7 +20,6 @@ class MetaDataset:
         :param no_classes: int, number of classes to work with
         :param crop: int, square dim to crop images to
         :param transform: transforms.Compose() object to be applied to each image
->>>>>>> e66e7412e2bfd4c64364ef4f1f6e9be765534522:data_loader.py
         """
         self.root_dir = root_dir
         self.shots = shots
