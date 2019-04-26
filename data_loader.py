@@ -59,5 +59,5 @@ class MetaDataset:
                 sample_items.append(image_tensor)
 
         # labels only have to indicate how tensors group into different classes
-        labels = np.repeat(range(self.no_classes), self.shots)
+        labels = np.repeat(range(self.no_classes), self.shots + self.evals)
         return torch.stack(sample_items), labels
