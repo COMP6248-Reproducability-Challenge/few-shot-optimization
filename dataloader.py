@@ -2,15 +2,24 @@ import os
 import random
 
 import PIL.Image as Image
+import numpy as np
 import torch
 import torchvision.transforms as transforms
-import numpy as np
+
 
 class MetaDataset:
     def __init__(self, root_dir, shots, evals, no_classes, crop=128,
                  transform=transforms.Compose([transforms.RandomResizedCrop(128),
                                                transforms.ToTensor(),
                                                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])):
+        """
+        :param root_dir: directory containing folders for each class
+        :param shots: number items used for training
+        :param evals: number of items used for evaluation to get acc and loss
+        :param no_classes: number of classes to learn to differentiate
+        :param crop: size to crop image down to
+        :param transform: transform function for processing images
+        """
         self.root_dir = root_dir
         self.shots = shots
         self.evals = evals
@@ -19,7 +28,10 @@ class MetaDataset:
         self.crop = crop
 
     def getitem(self):
+        """
 
+        :return: return no_classes * (shots + evals) tensors with corresponding labels
+        """
         # pick classes number of random directories
         class_dirs = [name for name in os.listdir(self.root_dir)]
         total_classes = len(class_dirs)
