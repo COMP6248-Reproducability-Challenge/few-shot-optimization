@@ -1,9 +1,8 @@
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 
-class Learner(nn.Module):
+class CNNLearner(nn.Module):
     def __init__(self, n_filters, kernel_size, output_dim, bn_momentum):
         super().__init__()
 

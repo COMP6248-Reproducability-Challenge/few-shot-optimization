@@ -1,6 +1,6 @@
 import copy
 import torch
-import learner
+import CNNlearner
 import data_loader
 import meta_learner
 
@@ -30,12 +30,12 @@ GRADIENT_CLIPPING = 0.025
 def accuracy(predictions, truth):
     raise NotImplementedError
 
-
-def train_learner(learner_w_grad, metalearner, train_inputs, train_labels):
+# train the learner using the cell state from the meta learner
+def train_learner(learner, metalearner, train_inputs, train_labels):
     raise NotImplementedError
 
 
-def meta_test(iteration, val_dataset, learner_w_grad, learner_wo_grad, metalearner):
+def meta_test(iteration, val_dataset, learner, learner_wo_grad, metalearner):
     raise NotImplementedError
 
 
@@ -48,14 +48,14 @@ def main():
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # Create the models
-    learner_w_grad = learner.Learner(FILTERS, KERNEL_SIZE, OUTPUT_DIM, BN_MOMENTUM).to(device)
+    learner = CNNlearner.Learner(FILTERS, KERNEL_SIZE, OUTPUT_DIM, BN_MOMENTUM).to(device)
     # Learner without gradient history
-    learner_wo_grad = copy.deepcopy(learner_w_grad)
+    grad_free_learner = copy.deepcopy(learner)
 
-    metalearner = meta_learner.MetaLearner(INPUT_SIZE, HIDDEN_SIZE, learner_w_grad.get_flat_params().size(0)).to(device)
-    metalearner.init_memory_cell(learner_w_grad.get_flat_params())
+    metalearner = meta_learner.MetaLearner(INPUT_SIZE, HIDDEN_SIZE, learner.get_flat_params().size(0)).to(device)
+    metalearner.init_memory_cell(learner.get_flat_params())
 
-    optim = torch.optim.Adam(metalearner.parameters(), lr=LEARNING_RATE)
+    optimiser = torch.optim.Adam(metalearner.parameters(), lr=LEARNING_RATE)
     learner_loss_function = torch.nn.CrossEntropyLoss()
 
     # Training Loop
@@ -71,28 +71,28 @@ def main():
         test_y = y[:, shots:].flatten()
 
         # Train learner with metalearner
-        learner_w_grad.reset_batch_norm()
-        learner_wo_grad.reset_batch_norm()
-        learner_w_grad.train()
-        learner_wo_grad.train()
-        new_cell_state = train_learner(learner_w_grad, metalearner, train_x, train_y)
+        learner.reset_batch_norm()
+        grad_free_learner.reset_batch_norm()
+        learner.train()
+        grad_free_learner.train()
+        new_cell_state = train_learner(learner, metalearner, train_x, train_y)
 
         # Train meta-learner
-        learner_wo_grad.transfer_params(learner_w_grad, new_cell_state)
-        output = learner_wo_grad(test_x)
+        grad_free_learner.transfer_params(learner, new_cell_state)
+        output = grad_free_learner(test_x)
         loss = learner_loss_function(output, test_y)
         acc = accuracy(output, test_y)
         print("Iteration {}, Training Accuracy {}".format(it, acc))
 
-        optim.zero_grad()
+        optimiser.zero_grad()
         loss.backward()
 
         torch.nn.utils.clip_grad_norm_(metalearner.parameters(), GRADIENT_CLIPPING)
-        optim.step()
+        optimiser.step()
 
         # Meta-validation
         if it != 0:
-            acc = meta_test(it, val_dataset, learner_w_grad, learner_wo_grad, metalearner)
+            acc = meta_test(it, val_dataset, learner, grad_free_learner, metalearner)
             print("Validation accuracy", acc)
 
 
