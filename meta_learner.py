@@ -73,10 +73,35 @@ class MetaLearnerLSTMCell(nn.Module):
 
 
 class MetaLearner(nn.Module):
-    def __init__(self, input_size, hidden_size):
+    def __init__(self, input_size, hidden_size, n_learner_params):
+        """
+        :param input_size: int, input size for the first lstm layer
+        :param hidden_size: int, output size for the first lstm layer
+        :param n_learner_params: int, number of learner parameters
+        """
         super().__init__()
-        self.lstm0 = nn.LSTM(input_size, hidden_size)
-        self.cutom_lstm = nn.MetaLearnerLSTMCell(input_size, hidden_size)
+        self.lstm = nn.LSTM(input_size, hidden_size)
+        self.custom_lstm = MetaLearnerLSTMCell(input_size, hidden_size, n_learner_params)
 
-    def forward(self, x):
-        return 0
+    def forward(self, inputs, hidden_state=None):
+        """
+        :param inputs: From the paper [learner_loss, learner_grad_prep, learner_grad]
+                    learner_loss: tensor of shape [1, 2], containing the learner's loss value
+                    learner_grad_prep: tensor of shape [n_learner_params, 2], processed learner gradients
+                    learner_grad: tensor of shape [n_learner_params], vanilla learner gradients
+        :param hidden_state: previous state gate values for both cells. Gets updated by MetaLSTMCell
+                    [(lstm_hidden_state, lstm_cell_state), [metalstm_forget_gate, metalstm_update_gate, metalstm_cell_state]]
+        """
+        learner_loss, learner_grad_prep, learner_grad = inputs
+        # Expand the loss to be of size [n_learner_params]
+        learner_loss = learner_loss.expand_as(learner_grad_prep)
+        inputs = torch.cat((learner_loss, learner_grad_prep), 1)
+
+        # Initialise hidden_state for t=0
+        if hidden_state is None:
+            hidden_state = [None, None]
+
+        lstm_out, lstm_cx = self.lstm(inputs, hidden_state[0])
+        metalstm_out, metalstm_hs = self.custom_lstm([lstm_out, learner_grad], hidden_state[1])
+
+        return metalstm_out.squeeze(), [(lstm_out, lstm_cx), metalstm_hs]
