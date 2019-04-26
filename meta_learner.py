@@ -105,3 +105,6 @@ class MetaLearner(nn.Module):
         metalstm_out, metalstm_hs = self.custom_lstm([lstm_out, learner_grad], hidden_state[1])
 
         return metalstm_out.squeeze(), [(lstm_out, lstm_cx), metalstm_hs]
+
+    def init_memory_cell(self, flat_params):
+        raise NotImplementedError

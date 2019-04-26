@@ -40,3 +40,6 @@ class Learner(nn.Module):
         out = self.fc(out)
 
         return F.softmax(out)
+
+    def reset_batch_norm(self):
+        raise NotImplemented
