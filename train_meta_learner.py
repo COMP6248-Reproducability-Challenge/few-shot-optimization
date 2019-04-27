@@ -3,6 +3,7 @@ import torch
 import CNNlearner
 import data_loader
 import meta_learner
+from sklearn.metrics import accuracy_score
 
 iterations = 5
 evals = 15  # items used to test acc and loss
@@ -28,7 +29,14 @@ GRADIENT_CLIPPING = 0.025
 
 
 def accuracy(predictions, truth):
-    raise NotImplementedError
+    """
+    :param predictions: torch tensor with output from classifier
+    :param truth: numpy array of true labels
+    :return: accuracy score
+    """
+    predictions = predictions.detach().cpu().numpy()
+    return accuracy_score(y_true=truth, y_pred=predictions)
+
 
 # train the learner using the cell state from the meta learner
 def train_learner(learner, metalearner, train_inputs, train_labels):
@@ -48,7 +56,7 @@ def main():
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # Create the models
-    learner = CNNlearner.Learner(FILTERS, KERNEL_SIZE, OUTPUT_DIM, BN_MOMENTUM).to(device)
+    learner = CNNlearner.CNNLearner(FILTERS, KERNEL_SIZE, OUTPUT_DIM, BN_MOMENTUM).to(device)
     # Learner without gradient history
     grad_free_learner = copy.deepcopy(learner)
 
@@ -97,3 +105,6 @@ def main():
 
 
 main()
+
+if __name__ == "__main__":
+    main()

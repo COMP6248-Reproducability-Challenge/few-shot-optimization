@@ -70,6 +70,9 @@ class MetaLearnerLSTMCell(nn.Module):
 
         return new_c, [forget_t, update_t, new_c]
 
+    def init_memory_cell(self, flat_params):
+        self.memory_cell.data.copy_(flat_params.unsqueeze(1))
+
 
 class MetaLearner(nn.Module):
     def __init__(self, input_size, hidden_size, n_learner_params):
@@ -106,4 +109,4 @@ class MetaLearner(nn.Module):
         return metalstm_out.squeeze(), [(lstm_out, lstm_cx), metalstm_hs]
 
     def init_memory_cell(self, flat_params):
-        raise NotImplementedError
+        self.custom_lstm.init_memory_cell(flat_params)

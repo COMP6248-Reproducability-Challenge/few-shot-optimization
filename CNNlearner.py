@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -41,4 +42,22 @@ class CNNLearner(nn.Module):
         return F.softmax(out)
 
     def reset_batch_norm(self):
-        raise NotImplemented
+        self.batch_norm.reset_running_stats()
+
+    def get_flat_params(self):
+        """
+        :return: flattened tensor containing all parameter weights of the learner
+        """
+        return torch.cat([p.view(-1) for p in self.parameters()], 0)
+
+    def replace_flat_params(self, flat_params):
+        """
+        Copies the weight value of the input params to the parameters of the learner
+        :param flat_params: flattened tensor of len(n_learner_params)
+        """
+        current_position = 0
+        for param in self.parameters():
+            num_weights = len(param.flatten())
+            corresponding_weights = flat_params[current_position: current_position + num_weights].view_as(param)
+            param.data.copy_(corresponding_weights)
+            current_position += num_weights
