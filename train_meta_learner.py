@@ -18,6 +18,7 @@ FILTERS = 32
 KERNEL_SIZE = 3
 OUTPUT_DIM = 5
 BN_MOMENTUM = 0.2
+CROPPED_IMAGE_SIZE = 128
 
 # Meta Learner Network parameters
 INPUT_SIZE = 64
@@ -26,6 +27,8 @@ HIDDEN_SIZE = 256
 # More parameters
 LEARNING_RATE = 0.01
 GRADIENT_CLIPPING = 0.025
+LEARNER_TRAINING_EPOCHS = 5
+BATCH_SIZE = 128
 
 
 def accuracy(predictions, truth):
@@ -40,7 +43,36 @@ def accuracy(predictions, truth):
 
 # train the learner using the cell state from the meta learner
 def train_learner(learner, metalearner, train_inputs, train_labels):
-    raise NotImplementedError
+    memory_cell = metalearner.custom_lstm.memory_cell.data
+    hidden_states = [None]
+    for epoch in range(LEARNER_TRAINING_EPOCHS):
+        for i in range(0, len(train_inputs), BATCH_SIZE):
+            x = train_inputs[i: i + BATCH_SIZE]
+            y = train_labels[i: i + BATCH_SIZE]
+
+            # Give the learner the updated params
+            learner.replace_flat_params(memory_cell)
+            output = learner(x)
+
+            # Compute loss and accuracy
+            loss = torch.nn.CrossEntropyLoss(output, y)
+            acc = accuracy(output, y)
+
+            # Compute gradients
+            learner.zero_grad()
+            loss.backward()
+
+            grad = torch.cat([p.grad.data.view(-1) / BATCH_SIZE for p in learner.parameters()], 0)
+
+            # Format the data for the metalearner
+            grad_prep = preprocess_grad_loss(grad)  # [n_learner_params, 2]
+            loss_prep = preprocess_grad_loss(loss.data.unsqueeze(0))  # [1, 2]
+
+            metalearner_input = [loss_prep, grad_prep, grad.unsqueeze(1)]
+            cI, new_h = metalearner(metalearner_input, hidden_states[-1])
+            hidden_states.append(new_h)
+
+    return memory_cell
 
 
 def meta_test(iteration, val_dataset, learner, learner_wo_grad, metalearner):
@@ -56,7 +88,7 @@ def main():
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
     # Create the models
-    learner = CNNlearner.CNNLearner(FILTERS, KERNEL_SIZE, OUTPUT_DIM, BN_MOMENTUM).to(device)
+    learner = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, OUTPUT_DIM, BN_MOMENTUM).to(device)
     # Learner without gradient history
     grad_free_learner = copy.deepcopy(learner)
 
