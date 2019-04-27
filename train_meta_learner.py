@@ -4,14 +4,15 @@ import CNNlearner
 import data_loader
 import meta_learner
 from sklearn.metrics import accuracy_score
+import math
 
 iterations = 5
 evals = 15  # items used to test acc and loss
 classes = 5  # number of classes we differentiate
 shots = 5  # items used to train with for each class
-train_path = "data/train"
-test_path = "data/test"
-val_path = "data/val"
+train_path = "train"
+test_path = "test"
+val_path = "val"
 
 # Learner Network parameters
 FILTERS = 32
@@ -40,6 +41,25 @@ def accuracy(predictions, truth):
     predictions = predictions.detach().cpu().numpy()
     return accuracy_score(y_true=truth, y_pred=predictions)
 
+# preprocess parameters elementwise according to paper
+def preprocess_parameters(parameters):
+    p = 10
+
+    pgrad1 = []
+    pgrad2 = []
+    for x in range(parameters.size()[0]):
+        if (torch.abs(parameters[x]) >= math.exp(-p)):
+            pgrad1.append(math.log(torch.abs(parameters[x])) / p)
+            pgrad2.append(torch.sign(parameters[x]))
+        else:
+            pgrad1.append(-1)
+            pgrad2.append(math.exp(p) * parameters[x])
+
+    # list to tensors
+    pgrad1 = torch.FloatTensor(pgrad1)
+    pgrad2 = torch.FloatTensor(pgrad2)
+
+    return torch.stack((pgrad1, pgrad2), 1)
 
 # train the learner using the cell state from the meta learner
 def train_learner(learner, metalearner, train_inputs, train_labels):
@@ -53,10 +73,16 @@ def train_learner(learner, metalearner, train_inputs, train_labels):
             # Give the learner the updated params
             learner.replace_flat_params(memory_cell)
             output = learner(x)
+            target = torch.LongTensor(y)
+
 
             # Compute loss and accuracy
-            loss = torch.nn.CrossEntropyLoss(output, y)
-            acc = accuracy(output, y)
+            celoss = torch.nn.CrossEntropyLoss()
+            loss = celoss(output, target)
+
+            # interpret softmax as set of label predictions
+            _, predictions = torch.max(output[:], 1)
+            acc = accuracy(predictions, target)
 
             # Compute gradients
             learner.zero_grad()
@@ -64,11 +90,12 @@ def train_learner(learner, metalearner, train_inputs, train_labels):
 
             grad = torch.cat([p.grad.data.view(-1) / BATCH_SIZE for p in learner.parameters()], 0)
 
-            # Format the data for the metalearner
-            grad_prep = preprocess_grad_loss(grad)  # [n_learner_params, 2]
-            loss_prep = preprocess_grad_loss(loss.data.unsqueeze(0))  # [1, 2]
+            # preprocess the gradients of the learner to handle varying magnitudes
+            pgrad = preprocess_parameters(grad)
+            ploss = preprocess_parameters(loss.data.unsqueeze(0))
 
-            metalearner_input = [loss_prep, grad_prep, grad.unsqueeze(1)]
+
+            metalearner_input = [ploss, pgrad, grad.unsqueeze(1)]
             cI, new_h = metalearner(metalearner_input, hidden_states[-1])
             hidden_states.append(new_h)
 
