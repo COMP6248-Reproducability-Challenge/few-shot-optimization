@@ -57,13 +57,14 @@ class MetaLearnerLSTMCell(nn.Module):
 
         # Expand the biases to be used below
         b_forget = self.b_forget.expand_as(p_forget)
-        b_update = self.bI.expand_as(p_update)
+        b_update = self.b_update.expand_as(p_update)
 
         # Equations from the paper
         # forget_t = sigmoid(W_f * [grad_t, loss_t, theta_{t-1}, f_{t-1}] + b_f)
         # update_t = sigmoid(W_i * [grad_t, loss_t, theta_{t-1}, i_{t-1}] + b_i)
+        # print(torch.mm(torch.cat((coordinates, p_memory_cell, p_forget), 1), self.W_forget))
         forget_t = torch.mm(torch.cat((coordinates, p_memory_cell, p_forget), 1), self.W_forget) + b_forget
-        update_t = torch.mm(torch.cat((coordinates, p_memory_cell, p_update), 1), self.WI) + b_update
+        update_t = torch.mm(torch.cat((coordinates, p_memory_cell, p_update), 1), self.W_update) + b_update
 
         # next cell update
         new_c = torch.sigmoid(forget_t).mul(p_memory_cell) - torch.sigmoid(update_t).mul(grad)
@@ -82,8 +83,8 @@ class MetaLearner(nn.Module):
         :param n_learner_params: int, number of learner parameters
         """
         super().__init__()
-        self.lstm = nn.LSTM(input_size, hidden_size)
-        self.custom_lstm = MetaLearnerLSTMCell(input_size, hidden_size, n_learner_params)
+        self.lstm = nn.LSTMCell(input_size, hidden_size)
+        self.custom_lstm = MetaLearnerLSTMCell(hidden_size, 1, n_learner_params)
 
     def forward(self, inputs, hidden_state=None):
         """
@@ -94,6 +95,7 @@ class MetaLearner(nn.Module):
         :param hidden_state: previous state gate values for both cells. Gets updated by MetaLSTMCell
                     [(lstm_hidden_state, lstm_cell_state), [metalstm_forget_gate, metalstm_update_gate, metalstm_cell_state]]
         """
+        # print(len(inputs))
         learner_loss, learner_grad_prep, learner_grad = inputs
         # Expand the loss to be of size [n_learner_params]
         learner_loss = learner_loss.expand_as(learner_grad_prep)
@@ -103,6 +105,8 @@ class MetaLearner(nn.Module):
         if hidden_state is None:
             hidden_state = [None, None]
 
+        # print(inputs.shape)
+        # print(hidden_state)
         lstm_out, lstm_cx = self.lstm(inputs, hidden_state[0])
         metalstm_out, metalstm_hs = self.custom_lstm([lstm_out, learner_grad], hidden_state[1])
 

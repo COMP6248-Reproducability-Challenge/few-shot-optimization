@@ -22,7 +22,7 @@ BN_MOMENTUM = 0.2
 CROPPED_IMAGE_SIZE = 128
 
 # Meta Learner Network parameters
-INPUT_SIZE = 64
+INPUT_SIZE = 4
 HIDDEN_SIZE = 256
 
 # More parameters
@@ -144,8 +144,17 @@ def main():
         grad_free_learner.train()
         new_cell_state = train_learner(learner, metalearner, train_x, train_y)
 
-        # Train meta-learner
-        grad_free_learner.transfer_params(learner, new_cell_state)
+        # new cell state contains our parameters in a 1-d array
+        i = 0
+        modules = grad_free_learner.modules()
+        for m in modules:
+            # print(m)
+            print(m)
+            # print(m.state_dict())
+            # print(m in m.modules)
+
+
+        # grad_free_learner.transfer_params(learner, new_cell_state)
         output = grad_free_learner(test_x)
         loss = learner_loss_function(output, test_y)
         acc = accuracy(output, test_y)
