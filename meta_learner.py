@@ -62,7 +62,6 @@ class MetaLearnerLSTMCell(nn.Module):
         # Equations from the paper
         # forget_t = sigmoid(W_f * [grad_t, loss_t, theta_{t-1}, f_{t-1}] + b_f)
         # update_t = sigmoid(W_i * [grad_t, loss_t, theta_{t-1}, i_{t-1}] + b_i)
-        # print(torch.mm(torch.cat((coordinates, p_memory_cell, p_forget), 1), self.W_forget))
         forget_t = torch.mm(torch.cat((coordinates, p_memory_cell, p_forget), 1), self.W_forget) + b_forget
         update_t = torch.mm(torch.cat((coordinates, p_memory_cell, p_update), 1), self.W_update) + b_update
 
@@ -95,7 +94,6 @@ class MetaLearner(nn.Module):
         :param hidden_state: previous state gate values for both cells. Gets updated by MetaLSTMCell
                     [(lstm_hidden_state, lstm_cell_state), [metalstm_forget_gate, metalstm_update_gate, metalstm_cell_state]]
         """
-        # print(len(inputs))
         learner_loss, learner_grad_prep, learner_grad = inputs
         # Expand the loss to be of size [n_learner_params]
         learner_loss = learner_loss.expand_as(learner_grad_prep)
@@ -105,8 +103,6 @@ class MetaLearner(nn.Module):
         if hidden_state is None:
             hidden_state = [None, None]
 
-        # print(inputs.shape)
-        # print(hidden_state)
         lstm_out, lstm_cx = self.lstm(inputs, hidden_state[0])
         metalstm_out, metalstm_hs = self.custom_lstm([lstm_out, learner_grad], hidden_state[1])
 

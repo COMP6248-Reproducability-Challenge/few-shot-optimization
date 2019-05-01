@@ -148,11 +148,8 @@ def main():
         i = 0
         modules = grad_free_learner.modules()
         for m in modules:
-            # print(m)
-            print(m)
-            # print(m.state_dict())
-            # print(m in m.modules)
-
+            # TODO: Finish.
+            pass
 
         # grad_free_learner.transfer_params(learner, new_cell_state)
         output = grad_free_learner(test_x)
