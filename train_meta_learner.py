@@ -102,8 +102,35 @@ def train_learner(learner, metalearner, train_inputs, train_labels):
     return memory_cell
 
 
-def meta_test(iteration, val_dataset, learner, learner_wo_grad, metalearner):
-    raise NotImplementedError
+def meta_test(val_dataset, learner, learner_wo_grad, metalearner):
+    # Get the data to train and test the model
+    x, y = val_dataset.getitem()
+    x = x.reshape((shots, shots + evals) + x.shape[1:])
+    y = y.reshape((shots, shots + evals))
+
+    train_x = x[:, :shots].reshape((shots * classes,) + x.shape[2:])
+    train_y = y[:, :shots].flatten()
+
+    test_x = x[:, shots:].reshape((evals * classes,) + x.shape[2:])
+    test_y = y[:, shots:].flatten()
+
+    # Reset the batch norm layers
+    learner.reset_batch_norm()
+    learner_wo_grad.reset_batch_norm()
+
+    # Set the Laerner with gradients to train mode and the learner without gradients to eval
+    learner.train()
+    learner_wo_grad.eval()
+
+    # Get and copy the updated parameters for the learner
+    cell_state = train_learner(learner, metalearner, train_x, train_y)
+    learner_wo_grad.replace_flat_params(cell_state)
+
+    # Get validation set predictions and return accuracy
+    output = learner_wo_grad(test_x)
+    preds = torch.max(output[:], 1)[1]
+
+    return accuracy(preds, truth=test_y)
 
 
 def main():
@@ -151,8 +178,7 @@ def main():
         output = grad_free_learner(test_x)
         predictions = torch.max(output[:], 1)[1]
         loss = learner_loss_function(output, torch.LongTensor(test_y))
-        acc = accuracy(predictions, test_y)
-        print("Iteration {}, Training Accuracy {}".format(it, acc))
+        train_acc = accuracy(predictions, test_y)
 
         optimiser.zero_grad()
         loss.backward()
@@ -161,12 +187,10 @@ def main():
         optimiser.step()
 
         # Meta-validation
-        if it != 0:
-            acc = meta_test(it, val_dataset, learner, grad_free_learner, metalearner)
-            print("Validation accuracy", acc)
+        val_acc = meta_test(val_dataset, learner, grad_free_learner, metalearner)
 
+        print("Iteration {} | Training Accuracy {:.4f} | Validation Accuracy {:.4f}".format(it, train_acc, val_acc))
 
-main()
 
 if __name__ == "__main__":
     main()
