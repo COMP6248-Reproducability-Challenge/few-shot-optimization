@@ -1,10 +1,10 @@
+import math
 import copy
 import torch
 import CNNlearner
 import data_loader
 import meta_learner
 from sklearn.metrics import accuracy_score
-import math
 
 iterations = 5
 evals = 15  # items used to test acc and loss
@@ -149,8 +149,9 @@ def main():
 
         # grad_free_learner.transfer_params(learner, new_cell_state)
         output = grad_free_learner(test_x)
-        loss = learner_loss_function(output, test_y)
-        acc = accuracy(output, test_y)
+        predictions = torch.max(output[:], 1)[1]
+        loss = learner_loss_function(output, torch.LongTensor(test_y))
+        acc = accuracy(predictions, test_y)
         print("Iteration {}, Training Accuracy {}".format(it, acc))
 
         optimiser.zero_grad()
