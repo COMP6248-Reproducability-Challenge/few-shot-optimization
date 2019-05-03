@@ -10,9 +10,9 @@ iterations = 5
 evals = 15  # items used to test acc and loss
 classes = 5  # number of classes we differentiate
 shots = 5  # items used to train with for each class
-train_path = "train"
-test_path = "test"
-val_path = "val"
+train_path = "data/train"
+test_path = "data/test"
+val_path = "data/val"
 
 # Learner Network parameters
 FILTERS = 32
@@ -41,6 +41,7 @@ def accuracy(predictions, truth):
     predictions = predictions.detach().cpu().numpy()
     return accuracy_score(y_true=truth, y_pred=predictions)
 
+
 # preprocess parameters elementwise according to paper
 def preprocess_parameters(parameters):
     p = 10
@@ -61,6 +62,7 @@ def preprocess_parameters(parameters):
 
     return torch.stack((pgrad1, pgrad2), 1)
 
+
 # train the learner using the cell state from the meta learner
 def train_learner(learner, metalearner, train_inputs, train_labels):
     memory_cell = metalearner.custom_lstm.memory_cell.data
@@ -74,7 +76,6 @@ def train_learner(learner, metalearner, train_inputs, train_labels):
             learner.replace_flat_params(memory_cell)
             output = learner(x)
             target = torch.LongTensor(y)
-
 
             # Compute loss and accuracy
             celoss = torch.nn.CrossEntropyLoss()
@@ -93,7 +94,6 @@ def train_learner(learner, metalearner, train_inputs, train_labels):
             # preprocess the gradients of the learner to handle varying magnitudes
             pgrad = preprocess_parameters(grad)
             ploss = preprocess_parameters(loss.data.unsqueeze(0))
-
 
             metalearner_input = [ploss, pgrad, grad.unsqueeze(1)]
             cI, new_h = metalearner(metalearner_input, hidden_states[-1])
@@ -145,11 +145,7 @@ def main():
         new_cell_state = train_learner(learner, metalearner, train_x, train_y)
 
         # new cell state contains our parameters in a 1-d array
-        i = 0
-        modules = grad_free_learner.modules()
-        for m in modules:
-            # TODO: Finish.
-            pass
+        grad_free_learner.replace_flat_params(new_cell_state)
 
         # grad_free_learner.transfer_params(learner, new_cell_state)
         output = grad_free_learner(test_x)
