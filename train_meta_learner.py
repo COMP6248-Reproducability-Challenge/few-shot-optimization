@@ -1,35 +1,45 @@
-import math
 import copy
+
+import math
+import numpy as np
 import torch
+from sklearn.metrics import accuracy_score
+
 import CNNlearner
 import data_loader
 import meta_learner
-from sklearn.metrics import accuracy_score
 
-iterations = 5
-evals = 15  # items used to test acc and loss
-classes = 5  # number of classes we differentiate
-shots = 5  # items used to train with for each class
-train_path = "data/train"
-test_path = "data/test"
-val_path = "data/val"
+TRAIN_PATH = "data/train"
+TEST_PATH = "data/test"
+VAL_PATH = "data/val"
+
+CUDA_NUM = 0
+
+ITERATIONS = 10000
+EVALS = 15              # items used to test acc and loss
+CLASSES = 5             # number of classes we differentiate
+SHOTS = 5               # items used to train with for each class
+EVAL_POINT = 3          # when to assess performance on validation set
 
 # Learner Network parameters
 FILTERS = 32
 KERNEL_SIZE = 3
 OUTPUT_DIM = 5
-BN_MOMENTUM = 0.2
+BN_MOMENTUM = 0.95
 CROPPED_IMAGE_SIZE = 128
 
 # Meta Learner Network parameters
 INPUT_SIZE = 4
-HIDDEN_SIZE = 256
+HIDDEN_SIZE = 20
 
 # More parameters
-LEARNING_RATE = 0.01
-GRADIENT_CLIPPING = 0.025
-LEARNER_TRAINING_EPOCHS = 5
-BATCH_SIZE = 128
+LEARNING_RATE = 0.001
+GRADIENT_CLIPPING = 0.25
+LEARNER_TRAINING_EPOCHS = 8
+BATCH_SIZE = 25
+
+train_acc_hist = []
+val_acc_hist = []
 
 
 def accuracy(predictions, truth):
@@ -105,14 +115,14 @@ def train_learner(learner, metalearner, train_inputs, train_labels):
 def meta_test(val_dataset, learner, learner_wo_grad, metalearner):
     # Get the data to train and test the model
     x, y = val_dataset.getitem()
-    x = x.reshape((shots, shots + evals) + x.shape[1:])
-    y = y.reshape((shots, shots + evals))
+    x = x.reshape((SHOTS, SHOTS + EVALS) + x.shape[1:])
+    y = y.reshape((SHOTS, SHOTS + EVALS))
 
-    train_x = x[:, :shots].reshape((shots * classes,) + x.shape[2:])
-    train_y = y[:, :shots].flatten()
+    train_x = x[:, :SHOTS].reshape((SHOTS * CLASSES,) + x.shape[2:])
+    train_y = y[:, :SHOTS].flatten()
 
-    test_x = x[:, shots:].reshape((evals * classes,) + x.shape[2:])
-    test_y = y[:, shots:].flatten()
+    test_x = x[:, SHOTS:].reshape((EVALS * CLASSES,) + x.shape[2:])
+    test_y = y[:, SHOTS:].flatten()
 
     # Reset the batch norm layers
     learner.reset_batch_norm()
@@ -135,11 +145,11 @@ def meta_test(val_dataset, learner, learner_wo_grad, metalearner):
 
 def main():
     # Get the data
-    train_dataset = data_loader.MetaDataset(train_path, shots, evals, classes)
-    val_dataset = data_loader.MetaDataset(val_path, shots, evals, classes)
+    train_dataset = data_loader.MetaDataset(TRAIN_PATH, SHOTS, EVALS, CLASSES)
+    val_dataset = data_loader.MetaDataset(VAL_PATH, SHOTS, EVALS, CLASSES)
 
     # Use gpu when possible
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda:' + str(CUDA_NUM) if torch.cuda.is_available() else 'cpu')
 
     # Create the models
     learner = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, OUTPUT_DIM, BN_MOMENTUM).to(device)
@@ -153,16 +163,16 @@ def main():
     learner_loss_function = torch.nn.CrossEntropyLoss()
 
     # Training Loop
-    for it in range(iterations):
+    for it in range(ITERATIONS):
         x, y = train_dataset.getitem()
-        x = x.reshape((shots, shots + evals) + x.shape[1:])
-        y = y.reshape((shots, shots + evals))
+        x = x.reshape((SHOTS, SHOTS + EVALS) + x.shape[1:])
+        y = y.reshape((SHOTS, SHOTS + EVALS))
 
-        train_x = x[:, :shots].reshape((shots * classes, ) + x.shape[2:])
-        train_y = y[:, :shots].flatten()
+        train_x = x[:, :SHOTS].reshape((SHOTS * CLASSES,) + x.shape[2:])
+        train_y = y[:, :SHOTS].flatten()
 
-        test_x = x[:, shots:].reshape((evals * classes, ) + x.shape[2:])
-        test_y = y[:, shots:].flatten()
+        test_x = x[:, SHOTS:].reshape((EVALS * CLASSES,) + x.shape[2:])
+        test_y = y[:, SHOTS:].flatten()
 
         # Train learner with metalearner
         learner.reset_batch_norm()
@@ -179,6 +189,8 @@ def main():
         predictions = torch.max(output[:], 1)[1]
         loss = learner_loss_function(output, torch.LongTensor(test_y))
         train_acc = accuracy(predictions, test_y)
+        train_acc_hist.append(train_acc)
+        print("Iteration {} | Training Accuracy {:.4f}".format(it, train_acc))
 
         optimiser.zero_grad()
         loss.backward()
@@ -187,9 +199,13 @@ def main():
         optimiser.step()
 
         # Meta-validation
-        val_acc = meta_test(val_dataset, learner, grad_free_learner, metalearner)
+        if it % EVAL_POINT == 0:
+            val_acc = meta_test(val_dataset, learner, grad_free_learner, metalearner)
+            print("Iteration {} | Training Accuracy {:.4f} | Validation Accuracy {:.4f}".format(it, train_acc, val_acc))
+            val_acc_hist.append(val_acc)
 
-        print("Iteration {} | Training Accuracy {:.4f} | Validation Accuracy {:.4f}".format(it, train_acc, val_acc))
+            print("Avg. Train Accuracy: " + str(np.mean(np.array(train_acc_hist))))
+            print("Avg. Validation Accuracy: " + str(np.mean(np.array(val_acc_hist))))
 
 
 if __name__ == "__main__":
