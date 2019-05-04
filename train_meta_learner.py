@@ -1,13 +1,11 @@
 import copy
-
 import math
-import numpy as np
 import torch
-from sklearn.metrics import accuracy_score
-
 import CNNlearner
 import data_loader
+import numpy as np
 import meta_learner
+from sklearn.metrics import accuracy_score
 
 TRAIN_PATH = "data/train"
 TEST_PATH = "data/test"
