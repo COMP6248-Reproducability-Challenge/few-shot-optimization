@@ -111,3 +111,4 @@ venv.bak/
 *.pdf
 .idea/*
 data/*
+*.txt
