@@ -124,7 +124,7 @@ def train_learner(learner, metalearner, train_inputs, train_labels):
 
 def meta_test(val_dataset, learner, learner_wo_grad, metalearner):
     # Get the data to train and test the model
-    x, y = val_dataset.getitem()
+    x, y = val_dataset.get_item()
     x = x.reshape((SHOTS, SHOTS + EVALS) + x.shape[1:])
     y = y.reshape((SHOTS, SHOTS + EVALS))
 
@@ -171,7 +171,7 @@ def main():
 
     # Training Loop
     for it in range(ITERATIONS):
-        x, y = train_dataset.getitem()
+        x, y = train_dataset.get_item()
         x = x.reshape((SHOTS, SHOTS + EVALS) + x.shape[1:])
         y = y.reshape((SHOTS, SHOTS + EVALS))
 
