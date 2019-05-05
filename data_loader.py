@@ -45,7 +45,7 @@ class MetaDataset:
         # labels only have to indicate how tensors group into different classes
         labels = np.repeat(range(self.no_classes), self.shots + self.evals)
 
-        return sampled_images, labels
+        return torch.stack(sampled_images), labels
 
     def __load_images__(self):
         class_dirs = [name for name in os.listdir(self.root_dir)]
