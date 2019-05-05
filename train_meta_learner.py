@@ -48,6 +48,9 @@ BATCH_SIZE = 25
 train_acc_hist = []
 val_acc_hist = []
 
+# Use gpu when possible
+device = torch.device('cuda:' + str(CUDA_NUM) if torch.cuda.is_available() else 'cpu')
+
 
 def accuracy(predictions, truth):
     """
@@ -91,12 +94,12 @@ def train_learner(learner, metalearner, train_inputs, train_labels):
 
             # Give the learner the updated params
             learner.replace_flat_params(memory_cell)
-            output = learner(x)
+            output = learner(x.to(device))
             target = torch.LongTensor(y)
 
             # Compute loss and accuracy
             celoss = torch.nn.CrossEntropyLoss()
-            loss = celoss(output, target)
+            loss = celoss(output, target.to(device))
 
             # interpret softmax as set of label predictions
             _, predictions = torch.max(output[:], 1)
@@ -112,7 +115,7 @@ def train_learner(learner, metalearner, train_inputs, train_labels):
             pgrad = preprocess_parameters(grad)
             ploss = preprocess_parameters(loss.data.unsqueeze(0))
 
-            metalearner_input = [ploss, pgrad, grad.unsqueeze(1)]
+            metalearner_input = [ploss.to(device), pgrad.to(device), grad.unsqueeze(1).to(device)]
             cI, new_h = metalearner(metalearner_input, hidden_states[-1])
             hidden_states.append(new_h)
 
@@ -144,7 +147,7 @@ def meta_test(val_dataset, learner, learner_wo_grad, metalearner):
     learner_wo_grad.replace_flat_params(cell_state)
 
     # Get validation set predictions and return accuracy
-    output = learner_wo_grad(test_x)
+    output = learner_wo_grad(test_x.to(device))
     preds = torch.max(output[:], 1)[1]
 
     return accuracy(preds, truth=test_y)
@@ -154,9 +157,6 @@ def main():
     # Get the data
     train_dataset = data_loader.MetaDataset(TRAIN_PATH, SHOTS, EVALS, CLASSES)
     val_dataset = data_loader.MetaDataset(VAL_PATH, SHOTS, EVALS, CLASSES)
-
-    # Use gpu when possible
-    device = torch.device('cuda:' + str(CUDA_NUM) if torch.cuda.is_available() else 'cpu')
 
     # Create the models
     learner = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, OUTPUT_DIM, BN_MOMENTUM).to(device)
@@ -192,9 +192,9 @@ def main():
         grad_free_learner.replace_flat_params(new_cell_state)
 
         # grad_free_learner.transfer_params(learner, new_cell_state)
-        output = grad_free_learner(test_x)
+        output = grad_free_learner(test_x.to(device))
         predictions = torch.max(output[:], 1)[1]
-        loss = learner_loss_function(output, torch.LongTensor(test_y))
+        loss = learner_loss_function(output, torch.LongTensor(test_y).to(device))
         train_acc = accuracy(predictions, test_y)
         train_acc_hist.append(train_acc)
         print("Iteration {} | Training Accuracy {:.4f}".format(it, train_acc))
