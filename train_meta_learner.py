@@ -1,23 +1,32 @@
 import copy
 import math
 import torch
+import argparse
 import CNNlearner
 import data_loader
 import numpy as np
 import meta_learner
 from sklearn.metrics import accuracy_score
 
+# Argument parsing
+parser = argparse.ArgumentParser()
+parser.add_argument('-its', nargs='?', default=10000, type=int, help='Number of training iterations.')
+parser.add_argument('-cuda', nargs='?', default=0, type=int, help='Cuda number.')
+parser.add_argument('-val', nargs='?', default=1000, type=int, help='When to assess performance on validation set.')
+
+args = parser.parse_args()
+
 TRAIN_PATH = "data/train"
 TEST_PATH = "data/test"
 VAL_PATH = "data/val"
 
-CUDA_NUM = 0
+CUDA_NUM = args.cuda
+ITERATIONS = args.its
+EVAL_POINT = args.val
 
-ITERATIONS = 10000
 EVALS = 15              # items used to test acc and loss
 CLASSES = 5             # number of classes we differentiate
 SHOTS = 5               # items used to train with for each class
-EVAL_POINT = 3          # when to assess performance on validation set
 
 # Learner Network parameters
 FILTERS = 32
