@@ -12,38 +12,44 @@ class CNNLearner(nn.Module):
         self.conv_2 = nn.Conv2d(in_channels=n_filters, out_channels=n_filters, kernel_size=kernel_size, padding=1)
         self.conv_3 = nn.Conv2d(in_channels=n_filters, out_channels=n_filters, kernel_size=kernel_size, padding=1)
 
-        self.batch_norm = nn.BatchNorm2d(n_filters, momentum=bn_momentum)
+        self.batch_norm_0 = nn.BatchNorm2d(n_filters, momentum=bn_momentum)
+        self.batch_norm_1 = nn.BatchNorm2d(n_filters, momentum=bn_momentum)
+        self.batch_norm_2 = nn.BatchNorm2d(n_filters, momentum=bn_momentum)
+        self.batch_norm_3 = nn.BatchNorm2d(n_filters, momentum=bn_momentum)
 
         fc_in = image_size // 2**4
         self.fc = nn.Linear(fc_in * fc_in * n_filters, output_dim)
 
     def forward(self, x):
         out = self.conv_0(x)
-        out = self.batch_norm(out)
+        out = self.batch_norm_0(out)
         out = F.relu(out)
         out = F.max_pool2d(out, (2, 2))
 
         out = self.conv_1(out)
-        out = self.batch_norm(out)
+        out = self.batch_norm_1(out)
         out = F.relu(out)
         out = F.max_pool2d(out, (2, 2))
 
         out = self.conv_2(out)
-        out = self.batch_norm(out)
+        out = self.batch_norm_2(out)
         out = F.relu(out)
         out = F.max_pool2d(out, (2, 2))
 
         out = self.conv_3(out)
-        out = self.batch_norm(out)
+        out = self.batch_norm_3(out)
         out = F.relu(out)
         out = F.max_pool2d(out, (2, 2))
 
         out = self.fc(out.flatten(1))
 
-        return F.softmax(out, dim=1)
+        return out
 
     def reset_batch_norm(self):
-        self.batch_norm.reset_running_stats()
+        self.batch_norm_0.reset_running_stats()
+        self.batch_norm_1.reset_running_stats()
+        self.batch_norm_2.reset_running_stats()
+        self.batch_norm_3.reset_running_stats()
 
     def get_flat_params(self):
         """

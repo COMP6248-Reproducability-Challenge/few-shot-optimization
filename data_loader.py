@@ -22,7 +22,7 @@ class MetaDataset:
         self.no_classes = no_classes
 
         # transforms.Compose() object to be applied to each image
-        self.transform = transforms.Compose([transforms.RandomResizedCrop(128), transforms.ToTensor(),
+        self.transform = transforms.Compose([transforms.RandomResizedCrop(crop), transforms.ToTensor(),
                                              transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
         self.crop = crop
 

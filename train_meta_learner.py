@@ -34,7 +34,7 @@ FILTERS = 32
 KERNEL_SIZE = 3
 OUTPUT_DIM = 5
 BN_MOMENTUM = 0.95
-CROPPED_IMAGE_SIZE = 128
+CROPPED_IMAGE_SIZE = 84
 
 # Meta Learner Network parameters
 INPUT_SIZE = 4
@@ -147,8 +147,8 @@ def meta_test(val_dataset, learner, learner_wo_grad, metalearner):
 
 def main():
     # Get the data
-    train_dataset = data_loader.MetaDataset(TRAIN_PATH, SHOTS, EVALS, CLASSES)
-    val_dataset = data_loader.MetaDataset(VAL_PATH, SHOTS, EVALS, CLASSES)
+    train_dataset = data_loader.MetaDataset(TRAIN_PATH, SHOTS, EVALS, CLASSES, CROPPED_IMAGE_SIZE)
+    val_dataset = data_loader.MetaDataset(VAL_PATH, SHOTS, EVALS, CLASSES, CROPPED_IMAGE_SIZE)
 
     # Create the models
     learner = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, OUTPUT_DIM, BN_MOMENTUM).to(device)
