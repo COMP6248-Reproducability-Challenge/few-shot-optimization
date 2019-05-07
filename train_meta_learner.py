@@ -59,6 +59,7 @@ def accuracy(predictions, truth):
     :param truth: numpy array of true labels
     :return: accuracy score
     """
+    truth = truth.detach().cpu().numpy()
     predictions = predictions.detach().cpu().numpy()
     return accuracy_score(y_true=truth, y_pred=predictions)
 
@@ -85,12 +86,12 @@ def train_learner(learner, metalearner, train_inputs, train_labels):
 
             # Give the learner the updated params
             learner.replace_flat_params(memory_cell)
-            output = learner(x.to(device))
-            target = torch.LongTensor(y)
+            output = learner(x)
+            target = torch.LongTensor(y).to(device)
 
             # Compute loss and accuracy
             celoss = torch.nn.CrossEntropyLoss()
-            loss = celoss(output, target.to(device))
+            loss = celoss(output, target)
 
             # interpret softmax as set of label predictions
             _, predictions = torch.max(output[:], 1)
@@ -106,7 +107,7 @@ def train_learner(learner, metalearner, train_inputs, train_labels):
             pgrad = preprocess_parameters(grad)
             ploss = preprocess_parameters(loss.data.unsqueeze(0))
 
-            metalearner_input = [ploss.to(device), pgrad.to(device), grad.unsqueeze(1).to(device)]
+            metalearner_input = [ploss, pgrad, grad.unsqueeze(1)]
             cI, new_h = metalearner(metalearner_input, hidden_states[-1])
             hidden_states.append(new_h)
 
@@ -119,11 +120,11 @@ def meta_test(val_dataset, learner, learner_wo_grad, metalearner):
     x = x.reshape((SHOTS, SHOTS + EVALS) + x.shape[1:])
     y = y.reshape((SHOTS, SHOTS + EVALS))
 
-    train_x = x[:, :SHOTS].reshape((SHOTS * CLASSES,) + x.shape[2:])
+    train_x = x[:, :SHOTS].reshape((SHOTS * CLASSES,) + x.shape[2:]).to(device)
     train_y = y[:, :SHOTS].flatten()
 
-    test_x = x[:, SHOTS:].reshape((EVALS * CLASSES,) + x.shape[2:])
-    test_y = y[:, SHOTS:].flatten()
+    test_x = x[:, SHOTS:].reshape((EVALS * CLASSES,) + x.shape[2:]).to(device)
+    test_y = torch.LongTensor(y[:, SHOTS:].flatten()).to(device)
 
     # Reset the batch norm layers
     learner.reset_batch_norm()
@@ -138,7 +139,7 @@ def meta_test(val_dataset, learner, learner_wo_grad, metalearner):
     learner_wo_grad.replace_flat_params(cell_state)
 
     # Get validation set predictions and return accuracy
-    output = learner_wo_grad(test_x.to(device))
+    output = learner_wo_grad(test_x)
     preds = torch.max(output[:], 1)[1]
 
     return accuracy(preds, truth=test_y)
@@ -153,12 +154,13 @@ def main():
     learner = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, OUTPUT_DIM, BN_MOMENTUM).to(device)
     # Learner without gradient history
     grad_free_learner = copy.deepcopy(learner)
+    grad_free_learner = grad_free_learner.to(device)
 
     metalearner = meta_learner.MetaLearner(INPUT_SIZE, HIDDEN_SIZE, learner.get_flat_params().size(0)).to(device)
     metalearner.init_memory_cell(learner.get_flat_params())
 
     optimiser = torch.optim.Adam(metalearner.parameters(), lr=LEARNING_RATE)
-    learner_loss_function = torch.nn.CrossEntropyLoss()
+    learner_loss_function = torch.nn.CrossEntropyLoss().to(device)
 
     # Training Loop
     for it in range(ITERATIONS):
@@ -166,11 +168,11 @@ def main():
         x = x.reshape((SHOTS, SHOTS + EVALS) + x.shape[1:])
         y = y.reshape((SHOTS, SHOTS + EVALS))
 
-        train_x = x[:, :SHOTS].reshape((SHOTS * CLASSES,) + x.shape[2:])
+        train_x = x[:, :SHOTS].reshape((SHOTS * CLASSES,) + x.shape[2:]).to(device)
         train_y = y[:, :SHOTS].flatten()
 
-        test_x = x[:, SHOTS:].reshape((EVALS * CLASSES,) + x.shape[2:])
-        test_y = y[:, SHOTS:].flatten()
+        test_x = x[:, SHOTS:].reshape((EVALS * CLASSES,) + x.shape[2:]).to(device)
+        test_y = torch.LongTensor(y[:, SHOTS:].flatten()).to(device)
 
         # Train learner with metalearner
         learner.reset_batch_norm()
@@ -183,9 +185,9 @@ def main():
         grad_free_learner.replace_flat_params(new_cell_state)
 
         # grad_free_learner.transfer_params(learner, new_cell_state)
-        output = grad_free_learner(test_x.to(device))
+        output = grad_free_learner(test_x)
         predictions = torch.max(output[:], 1)[1]
-        loss = learner_loss_function(output, torch.LongTensor(test_y).to(device))
+        loss = learner_loss_function(output, test_y)
         train_acc = accuracy(predictions, test_y)
         train_acc_hist.append(train_acc)
         print("Iteration {} | Training Accuracy {:.4f} | Time: {}".format(it, train_acc, time.time()))
