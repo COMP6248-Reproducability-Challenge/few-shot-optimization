@@ -1,5 +1,6 @@
 import copy
 import math
+import time
 import torch
 import argparse
 import CNNlearner
@@ -65,22 +66,12 @@ def accuracy(predictions, truth):
 # preprocess parameters elementwise according to paper
 def preprocess_parameters(parameters):
     p = 10
+    indicator = (parameters.abs() >= np.exp(-p)).to(torch.float32)
 
-    pgrad1 = []
-    pgrad2 = []
-    for x in range(parameters.size()[0]):
-        if (torch.abs(parameters[x]) >= math.exp(-p)):
-            pgrad1.append(math.log(torch.abs(parameters[x])) / p)
-            pgrad2.append(torch.sign(parameters[x]))
-        else:
-            pgrad1.append(-1)
-            pgrad2.append(math.exp(p) * parameters[x])
+    x_proc1 = indicator * torch.log(parameters.abs() + 1e-8) / p + (1 - indicator) * -1
 
-    # list to tensors
-    pgrad1 = torch.FloatTensor(pgrad1)
-    pgrad2 = torch.FloatTensor(pgrad2)
-
-    return torch.stack((pgrad1, pgrad2), 1)
+    x_proc2 = indicator * torch.sign(parameters) + (1 - indicator) * np.exp(p) * parameters
+    return torch.stack((x_proc1, x_proc2), 1)
 
 
 # train the learner using the cell state from the meta learner
@@ -197,7 +188,7 @@ def main():
         loss = learner_loss_function(output, torch.LongTensor(test_y).to(device))
         train_acc = accuracy(predictions, test_y)
         train_acc_hist.append(train_acc)
-        print("Iteration {} | Training Accuracy {:.4f}".format(it, train_acc))
+        print("Iteration {} | Training Accuracy {:.4f} | Time: {}".format(it, train_acc, time.time()))
 
         optimiser.zero_grad()
         loss.backward()
@@ -208,7 +199,8 @@ def main():
         # Meta-validation
         if it % EVAL_POINT == 0:
             val_acc = meta_test(val_dataset, learner, grad_free_learner, metalearner)
-            print("Iteration {} | Training Accuracy {:.4f} | Validation Accuracy {:.4f}".format(it, train_acc, val_acc))
+            print("Iteration {} | Training Accuracy {:.4f} | Validation Accuracy {:.4f} | Time: {}".
+                  format(it, train_acc, val_acc, time.time()))
             val_acc_hist.append(val_acc)
 
             print("Avg. Train Accuracy: " + str(np.mean(np.array(train_acc_hist))))
