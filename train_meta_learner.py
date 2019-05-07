@@ -199,7 +199,7 @@ def main():
         optimiser.step()
 
         # Meta-validation
-        if it % EVAL_POINT == 0:
+        if it % EVAL_POINT == 0 or it == (ITERATIONS - 1):
             val_acc = meta_test(val_dataset, learner, grad_free_learner, metalearner)
             print("Iteration {} | Training Accuracy {:.4f} | Validation Accuracy {:.4f} | Time: {}".
                   format(it, train_acc, val_acc, time.time()))

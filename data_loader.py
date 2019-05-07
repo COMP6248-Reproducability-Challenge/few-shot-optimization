@@ -48,6 +48,11 @@ class MetaDataset:
         return torch.stack(sampled_images), labels
 
     def __load_images__(self):
+        """
+        Loads the entire dataset to memory
+        :return: a dictionary containing the class labels as
+                keys and a list of Tensors (one per image)
+        """
         class_dirs = [name for name in os.listdir(self.root_dir)]
         all_images = {}
         for dir in class_dirs:
