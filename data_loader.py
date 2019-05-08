@@ -7,7 +7,7 @@ import torchvision.transforms as transforms
 
 
 class MetaDataset:
-    def __init__(self, root_dir, shots, evals, no_classes, crop=128):
+    def __init__(self, root_dir, shots, evals, no_classes, transform=None, crop=128):
         """
         Creates a new instance of the MetaDataset class
         :param root_dir: string, images root directory
@@ -21,9 +21,11 @@ class MetaDataset:
         self.evals = evals
         self.no_classes = no_classes
 
-        # transforms.Compose() object to be applied to each image
-        self.transform = transforms.Compose([transforms.RandomResizedCrop(crop), transforms.ToTensor(),
-                                             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+        self.transform = transform
+        if transform is None:
+            # transforms.Compose() object to be applied to each image
+            self.transform = transforms.Compose([transforms.RandomResizedCrop(crop), transforms.ToTensor(),
+                                                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
         self.crop = crop
 
         # Pre-load all images to memory for speed

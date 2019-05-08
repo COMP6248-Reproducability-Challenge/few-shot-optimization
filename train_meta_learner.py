@@ -1,5 +1,4 @@
 import copy
-import math
 import time
 import torch
 import argparse
@@ -8,6 +7,7 @@ import data_loader
 import numpy as np
 import meta_learner
 from sklearn.metrics import accuracy_score
+import torchvision.transforms as transforms
 
 # Argument parsing
 parser = argparse.ArgumentParser()
@@ -97,7 +97,6 @@ def train_learner(learner, metalearner, train_inputs, train_labels):
 
             # interpret softmax as set of label predictions
             _, predictions = torch.max(output[:], 1)
-            acc = accuracy(predictions, target)
 
             # Compute gradients
             learner.zero_grad()
@@ -155,9 +154,20 @@ def meta_test(val_dataset, learner, learner_wo_grad, metalearner):
 
 
 def main():
+    # Transforms for preprocessing the data
+    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+
+    train_set_transform = transforms.Compose([transforms.RandomResizedCrop(CROPPED_IMAGE_SIZE),
+                                   transforms.RandomHorizontalFlip(),
+                                   transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.2),
+                                   transforms.ToTensor(), normalize])
+    val_set_transform = transforms.Compose([transforms.Resize(CROPPED_IMAGE_SIZE * 8 // 7),
+                                            transforms.CenterCrop(CROPPED_IMAGE_SIZE),
+                                            transforms.ToTensor(), normalize])
+
     # Get the data
-    train_dataset = data_loader.MetaDataset(TRAIN_PATH, SHOTS, EVALS, CLASSES, CROPPED_IMAGE_SIZE)
-    val_dataset = data_loader.MetaDataset(VAL_PATH, SHOTS, EVALS, CLASSES, CROPPED_IMAGE_SIZE)
+    train_dataset = data_loader.MetaDataset(TRAIN_PATH, SHOTS, EVALS, CLASSES, train_set_transform, CROPPED_IMAGE_SIZE)
+    val_dataset = data_loader.MetaDataset(VAL_PATH, SHOTS, EVALS, CLASSES, val_set_transform, CROPPED_IMAGE_SIZE)
 
     # Create the models
     learner = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, OUTPUT_DIM, BN_MOMENTUM).to(device)
