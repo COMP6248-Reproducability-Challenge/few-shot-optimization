@@ -12,10 +12,10 @@ class CNNLearner(nn.Module):
         self.conv_2 = nn.Conv2d(in_channels=n_filters, out_channels=n_filters, kernel_size=kernel_size, padding=1)
         self.conv_3 = nn.Conv2d(in_channels=n_filters, out_channels=n_filters, kernel_size=kernel_size, padding=1)
 
-        self.batch_norm_0 = nn.BatchNorm2d(n_filters, momentum=bn_momentum)
-        self.batch_norm_1 = nn.BatchNorm2d(n_filters, momentum=bn_momentum)
-        self.batch_norm_2 = nn.BatchNorm2d(n_filters, momentum=bn_momentum)
-        self.batch_norm_3 = nn.BatchNorm2d(n_filters, momentum=bn_momentum)
+        self.batch_norm_0 = nn.BatchNorm2d(n_filters, eps=1e-03, momentum=bn_momentum)
+        self.batch_norm_1 = nn.BatchNorm2d(n_filters, eps=1e-03, momentum=bn_momentum)
+        self.batch_norm_2 = nn.BatchNorm2d(n_filters, eps=1e-03, momentum=bn_momentum)
+        self.batch_norm_3 = nn.BatchNorm2d(n_filters, eps=1e-03, momentum=bn_momentum)
 
         fc_in = image_size // 2**4
         self.fc = nn.Linear(fc_in * fc_in * n_filters, output_dim)
