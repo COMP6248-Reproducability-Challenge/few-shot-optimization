@@ -137,9 +137,10 @@ def meta_test(val_dataset, learner, learner_wo_grad, metalearner):
         learner.train()
         learner_wo_grad.eval()
 
-        # Get and copy the updated parameters for the learner
+        # Get and copy the updated parameters for the learner as well as the running stats of the other learner
         cell_state = train_learner(learner, metalearner, train_x, train_y)
-        learner_wo_grad.replace_flat_params(cell_state)
+        stats = learner.get_bn_stats()
+        learner_wo_grad.replace_flat_params(cell_state, stats)
 
         # Get validation set predictions and return accuracy
         output = learner_wo_grad(test_x)
@@ -200,8 +201,10 @@ def main():
         grad_free_learner.train()
         new_cell_state = train_learner(learner, metalearner, train_x, train_y)
 
-        # new cell state contains our parameters in a 1-d array
-        grad_free_learner.replace_flat_params(new_cell_state)
+        # new cell state contains our parameters in a 1-d array,
+        # we trained using the other learner so we want to keep its running stats as well
+        stats = learner.get_bn_stats()
+        grad_free_learner.replace_flat_params(new_cell_state, stats)
 
         output = grad_free_learner(test_x)
         predictions = torch.max(output[:], 1)[1]

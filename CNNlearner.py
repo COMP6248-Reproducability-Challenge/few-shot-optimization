@@ -17,6 +17,9 @@ class CNNLearner(nn.Module):
         self.batch_norm_2 = nn.BatchNorm2d(n_filters, eps=1e-03, momentum=bn_momentum)
         self.batch_norm_3 = nn.BatchNorm2d(n_filters, eps=1e-03, momentum=bn_momentum)
 
+        # Used for easy access to the layers
+        self.bn_list = [self.batch_norm_0, self.batch_norm_1, self.batch_norm_2, self.batch_norm_3]
+
         fc_in = image_size // 2**4
         self.fc = nn.Linear(fc_in * fc_in * n_filters, output_dim)
 
@@ -57,10 +60,23 @@ class CNNLearner(nn.Module):
         """
         return torch.cat([p.view(-1) for p in self.parameters()], 0)
 
-    def replace_flat_params(self, flat_params):
+    def get_bn_stats(self):
         """
-        Copies the weight value of the input params to the parameters of the learner
+        :return: Tuple containing the batch normalisation layers running stats.
+        """
+        bn_means, bn_vars = [], []
+        for layer in self.bn_list:
+            bn_means.append(layer.running_mean)
+            bn_vars.append(layer.running_var)
+        return bn_means, bn_vars
+
+    def replace_flat_params(self, flat_params, bn_stats=None):
+        """
+        Copies the weight value of the input params to the parameters of the learner.
+        Copies the batch normalisation layers running stats
         :param flat_params: flattened tensor of len(n_learner_params)
+        :param bn_means: list of tensors of len(bn_list)
+        :param bn_vars: list of tensors len(bn_list)
         """
         current_position = 0
         for param in self.parameters():
@@ -68,3 +84,9 @@ class CNNLearner(nn.Module):
             corresponding_weights = flat_params[current_position: current_position + num_weights].view_as(param)
             param.data.copy_(corresponding_weights)
             current_position += num_weights
+
+        # Copy the batch norm running means and variances if needed
+        if bn_stats is not None:
+            for idx, layer in enumerate(self.bn_list):
+                layer.running_mean = bn_stats[0][idx]
+                layer.running_var = bn_stats[1][idx]
