@@ -46,6 +46,8 @@ GRADIENT_CLIPPING = 0.25
 LEARNER_TRAINING_EPOCHS = 8
 BATCH_SIZE = 25
 
+VAL_ITERATIONS = 100
+
 train_acc_hist = []
 val_acc_hist = []
 
@@ -108,41 +110,48 @@ def train_learner(learner, metalearner, train_inputs, train_labels):
             ploss = preprocess_parameters(loss.data.unsqueeze(0))
 
             metalearner_input = [ploss, pgrad, grad.unsqueeze(1)]
-            cI, new_h = metalearner(metalearner_input, hidden_states[-1])
+            memory_cell, new_h = metalearner(metalearner_input, hidden_states[-1])
             hidden_states.append(new_h)
 
     return memory_cell
 
 
 def meta_test(val_dataset, learner, learner_wo_grad, metalearner):
-    # Get the data to train and test the model
-    x, y = val_dataset.get_item()
-    x = x.reshape((SHOTS, SHOTS + EVALS) + x.shape[1:])
-    y = y.reshape((SHOTS, SHOTS + EVALS))
+    best_acc = 0
+    for _ in range(VAL_ITERATIONS):
+        # Get the data to train and test the model
+        x, y = val_dataset.get_item()
+        x = x.reshape((SHOTS, SHOTS + EVALS) + x.shape[1:])
+        y = y.reshape((SHOTS, SHOTS + EVALS))
 
-    train_x = x[:, :SHOTS].reshape((SHOTS * CLASSES,) + x.shape[2:]).to(device)
-    train_y = y[:, :SHOTS].flatten()
+        train_x = x[:, :SHOTS].reshape((SHOTS * CLASSES,) + x.shape[2:]).to(device)
+        train_y = y[:, :SHOTS].flatten()
 
-    test_x = x[:, SHOTS:].reshape((EVALS * CLASSES,) + x.shape[2:]).to(device)
-    test_y = torch.LongTensor(y[:, SHOTS:].flatten()).to(device)
+        test_x = x[:, SHOTS:].reshape((EVALS * CLASSES,) + x.shape[2:]).to(device)
+        test_y = torch.LongTensor(y[:, SHOTS:].flatten()).to(device)
 
-    # Reset the batch norm layers
-    learner.reset_batch_norm()
-    learner_wo_grad.reset_batch_norm()
+        # Reset the batch norm layers
+        learner.reset_batch_norm()
+        learner_wo_grad.reset_batch_norm()
 
-    # Set the Laerner with gradients to train mode and the learner without gradients to eval
-    learner.train()
-    learner_wo_grad.eval()
+        # Set the Laerner with gradients to train mode and the learner without gradients to eval
+        learner.train()
+        learner_wo_grad.eval()
 
-    # Get and copy the updated parameters for the learner
-    cell_state = train_learner(learner, metalearner, train_x, train_y)
-    learner_wo_grad.replace_flat_params(cell_state)
+        # Get and copy the updated parameters for the learner
+        cell_state = train_learner(learner, metalearner, train_x, train_y)
+        learner_wo_grad.replace_flat_params(cell_state)
 
-    # Get validation set predictions and return accuracy
-    output = learner_wo_grad(test_x)
-    preds = torch.max(output[:], 1)[1]
+        # Get validation set predictions and return accuracy
+        output = learner_wo_grad(test_x)
+        preds = torch.max(output[:], 1)[1]
 
-    return accuracy(preds, truth=test_y)
+        current_acc = accuracy(preds, truth=test_y)
+
+        if current_acc > best_acc:
+            best_acc = current_acc
+
+    return best_acc
 
 
 def main():
@@ -184,7 +193,6 @@ def main():
         # new cell state contains our parameters in a 1-d array
         grad_free_learner.replace_flat_params(new_cell_state)
 
-        # grad_free_learner.transfer_params(learner, new_cell_state)
         output = grad_free_learner(test_x)
         predictions = torch.max(output[:], 1)[1]
         loss = learner_loss_function(output, test_y)
@@ -201,7 +209,7 @@ def main():
         # Meta-validation
         if it % EVAL_POINT == 0 or it == (ITERATIONS - 1):
             val_acc = meta_test(val_dataset, learner, grad_free_learner, metalearner)
-            print("Iteration {} | Training Accuracy {:.4f} | Validation Accuracy {:.4f} | Time: {}".
+            print("Iteration {} | Training Accuracy {:.4f} | Best Validation Accuracy {:.4f} | Time: {}".
                   format(it, train_acc, val_acc, time.time()))
             val_acc_hist.append(val_acc)
 
