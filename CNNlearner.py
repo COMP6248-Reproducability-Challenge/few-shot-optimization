@@ -70,13 +70,10 @@ class CNNLearner(nn.Module):
             bn_vars.append(layer.running_var)
         return bn_means, bn_vars
 
-    def replace_flat_params(self, flat_params, bn_stats=None):
+    def copy_flat_params(self, flat_params):
         """
-        Copies the weight value of the input params to the parameters of the learner.
-        Copies the batch normalisation layers running stats
+        COPIES the weight value of the input params to the parameters of the learner.
         :param flat_params: flattened tensor of len(n_learner_params)
-        :param bn_means: list of tensors of len(bn_list)
-        :param bn_vars: list of tensors len(bn_list)
         """
         current_position = 0
         for param in self.parameters():
@@ -85,8 +82,26 @@ class CNNLearner(nn.Module):
             param.data.copy_(corresponding_weights)
             current_position += num_weights
 
-        # Copy the batch norm running means and variances if needed
-        if bn_stats is not None:
-            for idx, layer in enumerate(self.bn_list):
-                layer.running_mean = bn_stats[0][idx]
-                layer.running_var = bn_stats[1][idx]
+    def clone_flat_params(self, flat_params, bn_stats):
+        """
+        CLONES the parameters so that computation backpropagation graphs ARE connected.
+        :param flat_params: flattened tensor of len(n_learner_params)
+        :param bn_stats: batch normalization layer's running stats
+        """
+        current_position = 0
+        for current_module in list(self.modules())[1:]:
+            weight_len = len(current_module.weight.flatten())
+            bias_len = len(current_module.bias)
+            new_w = flat_params[current_position: current_position + weight_len].view_as(current_module.weight).clone()
+            new_b = flat_params[current_position: current_position + bias_len].view_as(current_module.bias).clone()
+            current_position += weight_len
+            current_position += bias_len
+            # In order to connect the computation graphs we need to access the
+            # protected members of the object to retain the backprop flow.
+            current_module._parameters["weight"] = new_w
+            current_module._parameters["bias"] = new_b
+
+        # Copy the batch norm running means and variances
+        for idx, layer in enumerate(self.bn_list):
+            layer.running_mean = bn_stats[0][idx]
+            layer.running_var = bn_stats[1][idx]

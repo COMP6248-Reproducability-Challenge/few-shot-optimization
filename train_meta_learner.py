@@ -87,7 +87,7 @@ def train_learner(learner, metalearner, train_inputs, train_labels):
             y = train_labels[i: i + BATCH_SIZE]
 
             # Give the learner the updated params
-            learner.replace_flat_params(memory_cell)
+            learner.copy_flat_params(memory_cell)
             output = learner(x)
             target = torch.LongTensor(y).to(device)
 
@@ -137,10 +137,11 @@ def meta_test(val_dataset, learner, learner_wo_grad, metalearner):
         learner.train()
         learner_wo_grad.eval()
 
-        # Get and copy the updated parameters for the learner as well as the running stats of the other learner
+        # Get and clone the updated parameters for the learner as well as the running stats of the other learner,
+        # connecting the backprop computation graph
         cell_state = train_learner(learner, metalearner, train_x, train_y)
         stats = learner.get_bn_stats()
-        learner_wo_grad.replace_flat_params(cell_state, stats)
+        learner_wo_grad.clone_flat_params(cell_state, stats)
 
         # Get validation set predictions and return accuracy
         output = learner_wo_grad(test_x)
@@ -201,10 +202,9 @@ def main():
         grad_free_learner.train()
         new_cell_state = train_learner(learner, metalearner, train_x, train_y)
 
-        # new cell state contains our parameters in a 1-d array,
-        # we trained using the other learner so we want to keep its running stats as well
+        # Clone the new parameters, so the computation graph is connected.
         stats = learner.get_bn_stats()
-        grad_free_learner.replace_flat_params(new_cell_state, stats)
+        grad_free_learner.clone_flat_params(new_cell_state, stats)
 
         output = grad_free_learner(test_x)
         predictions = torch.max(output[:], 1)[1]
