@@ -1,33 +1,46 @@
-import copy
-import time
-import torch
 import argparse
+import copy
+import os
+import time
+
+import numpy as np
+import torch
+import torchvision.transforms as transforms
+from sklearn.metrics import accuracy_score
+
 import CNNlearner
 import data_loader
-import numpy as np
 import meta_learner
-from sklearn.metrics import accuracy_score
-import torchvision.transforms as transforms
 
 # Argument parsing
 parser = argparse.ArgumentParser()
 parser.add_argument('-its', nargs='?', default=10000, type=int, help='Number of training iterations.')
 parser.add_argument('-cuda', nargs='?', default=0, type=int, help='Cuda number.')
 parser.add_argument('-val', nargs='?', default=1000, type=int, help='When to assess performance on validation set.')
-
+parser.add_argument('-test', default=False, action='store_true')
+parser.add_argument('-data', nargs='?', default='MIN', type=str,
+                    help='Which dataset to work on: MIN (default: miniImagenet) or MNIST')
+parser.add_argument('-classes', nargs='?', default=5, type=int,
+                    help='Number of classes, dictates output dims for classifier')
+parser.add_argument('-data_root', nargs='?', default='data/', type=str,
+                    help='Root for directory whether miniImagenet or other.')
 args = parser.parse_args()
 
-TRAIN_PATH = "data/train"
-TEST_PATH = "data/test"
-VAL_PATH = "data/val"
+if (args.data == 'MIN'):
+    TRAIN_PATH = os.path.join(args.root, 'train')
+    TEST_PATH = os.path.join(args.root, 'test')
+    VAL_PATH = os.path.join(args.root, 'val')
+
+if (args.data == 'MNIST'):
+    TRAIN_PATH = TEST_PATH = VAL_PATH = args.data_root  # co-located
 
 CUDA_NUM = args.cuda
 ITERATIONS = args.its
 EVAL_POINT = args.val
 
-EVALS = 15              # items used to test acc and loss
-CLASSES = 5             # number of classes we differentiate
-SHOTS = 5               # items used to train with for each class
+EVALS = 15  # items used to test acc and loss
+CLASSES = args.classes  # number of classes we differentiate
+SHOTS = 5  # items used to train with for each class
 
 # Learner Network parameters
 FILTERS = 32
@@ -119,9 +132,8 @@ def meta_test(val_dataset, learner, learner_wo_grad, metalearner):
     best_acc = 0
     for _ in range(VAL_ITERATIONS):
         # Get the data to train and test the model
+        print(".")
         x, y = val_dataset.get_item()
-        x = x.reshape((SHOTS, SHOTS + EVALS) + x.shape[1:])
-        y = y.reshape((SHOTS, SHOTS + EVALS))
 
         train_x = x[:, :SHOTS].reshape((SHOTS * CLASSES,) + x.shape[2:]).to(device)
         train_y = y[:, :SHOTS].flatten()
@@ -160,19 +172,26 @@ def main():
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
     train_set_transform = transforms.Compose([transforms.RandomResizedCrop(CROPPED_IMAGE_SIZE),
-                                   transforms.RandomHorizontalFlip(),
-                                   transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.2),
-                                   transforms.ToTensor(), normalize])
+                                              transforms.RandomHorizontalFlip(),
+                                              transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4,
+                                                                     hue=0.2),
+                                              transforms.ToTensor(), normalize])
     val_set_transform = transforms.Compose([transforms.Resize(CROPPED_IMAGE_SIZE * 8 // 7),
                                             transforms.CenterCrop(CROPPED_IMAGE_SIZE),
                                             transforms.ToTensor(), normalize])
 
-    # Get the data
-    train_dataset = data_loader.MetaDataset(TRAIN_PATH, SHOTS, EVALS, CLASSES, train_set_transform, CROPPED_IMAGE_SIZE)
-    val_dataset = data_loader.MetaDataset(VAL_PATH, SHOTS, EVALS, CLASSES, val_set_transform, CROPPED_IMAGE_SIZE)
+    if args.data == 'MIN':  # miniImagenet
+        train_dataset = data_loader.MetaMINDataset(TRAIN_PATH, SHOTS, EVALS, CLASSES, train_set_transform,
+                                                   CROPPED_IMAGE_SIZE)
+        val_dataset = data_loader.MetaMINDataset(VAL_PATH, SHOTS, EVALS, CLASSES, val_set_transform, CROPPED_IMAGE_SIZE)
+        learner = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, OUTPUT_DIM, BN_MOMENTUM).to(device)
 
-    # Create the models
-    learner = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, OUTPUT_DIM, BN_MOMENTUM).to(device)
+    if args.data == 'MNIST':
+        train_dataset = data_loader.MetaMNISTDataset(TRAIN_PATH, SHOTS, EVALS, CLASSES)
+        val_dataset = data_loader.MetaMNISTDataset(VAL_PATH, SHOTS, EVALS, CLASSES)
+        learner = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, CLASSES, BN_MOMENTUM, in_channels=1).to(
+            device)
+
     # Learner without gradient history
     grad_free_learner = copy.deepcopy(learner)
     grad_free_learner = grad_free_learner.to(device)
@@ -183,11 +202,14 @@ def main():
     optimiser = torch.optim.Adam(metalearner.parameters(), lr=LEARNING_RATE)
     learner_loss_function = torch.nn.CrossEntropyLoss().to(device)
 
+    if args.test:
+        best_acc = meta_test(val_dataset, learner, grad_free_learner, metalearner)
+        print("Best Accuracy {:.4f} | Time: {}".format(best_acc, time.time()))
+        quit()
+
     # Training Loop
     for it in range(ITERATIONS):
         x, y = train_dataset.get_item()
-        x = x.reshape((SHOTS, SHOTS + EVALS) + x.shape[1:])
-        y = y.reshape((SHOTS, SHOTS + EVALS))
 
         train_x = x[:, :SHOTS].reshape((SHOTS * CLASSES,) + x.shape[2:]).to(device)
         train_y = y[:, :SHOTS].flatten()

@@ -50,7 +50,12 @@ class MetaMINDataset:
         # labels only have to indicate how tensors group into different classes
         labels = np.repeat(range(self.no_classes), self.shots + self.evals)
 
-        return torch.stack(sampled_images), labels
+        data = torch.stack(sampled_images)
+
+        data = data.reshape((self.shots, self.shots + self.evals) + data.shape[1:])
+        labels = labels.reshape((self.shots, self.shots + self.evals))
+
+        return data, labels
 
     def __load_images__(self):
         """
@@ -80,7 +85,7 @@ class MetaMINDataset:
 
 
 class MetaMNISTDataset:
-    def __init__(self, root_dir, shots, evals, no_classes, transform=None, crop=128):
+    def __init__(self, root_dir, shots, evals, no_classes, transform=None, crop=84):
         self.root_dir = root_dir
         self.shots = shots
         self.evals = evals
@@ -90,6 +95,7 @@ class MetaMNISTDataset:
         if transform is None:
         # transforms.Compose() object to be applied to each image
             self.transform = torchvision.transforms.Compose([
+                transforms.Resize((crop, crop)),
                                torchvision.transforms.ToTensor(),
                                torchvision.transforms.Normalize(
                                  (0.1307,), (0.3081,))
@@ -103,7 +109,6 @@ class MetaMNISTDataset:
 
     def get_item(self):
         # require shots + evals random images from each class
-
         while (True):
             batch_idx, (example_data, example_targets) = next(self.examples)
             x_unique = example_targets.unique(sorted=True)
@@ -112,7 +117,7 @@ class MetaMNISTDataset:
                 break
 
         sort_by_label = [x for _, x in sorted(zip(example_targets.tolist(), example_data.tolist()))]
-        x = np.reshape(sort_by_label, ((self.shots+self.evals)*self.no_classes * 3, 1, 28, 28))
+        x = np.reshape(sort_by_label, ((self.shots+self.evals)*self.no_classes * 3, 1, 84, 84))
         trainlist = []
         for i in range(10):
             if i > 0:
@@ -120,4 +125,6 @@ class MetaMNISTDataset:
             trainlist.append(x[i:i + self.shots + self.evals])
 
         trainlist = np.array(trainlist)
-        return torch.from_numpy(trainlist)
+
+        labels = np.repeat(range(self.no_classes), self.shots + self.evals)
+        return torch.from_numpy(trainlist), labels.reshape(self.no_classes, self.shots + self.evals)

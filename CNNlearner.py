@@ -4,10 +4,10 @@ import torch.nn.functional as F
 
 
 class CNNLearner(nn.Module):
-    def __init__(self, image_size, n_filters, kernel_size, output_dim, bn_momentum):
+    def __init__(self, image_size, n_filters, kernel_size, output_dim, bn_momentum, in_channels=3):
         super().__init__()
 
-        self.conv_0 = nn.Conv2d(in_channels=3, out_channels=n_filters, kernel_size=kernel_size, padding=1)
+        self.conv_0 = nn.Conv2d(in_channels=in_channels, out_channels=n_filters, kernel_size=kernel_size, padding=1)
         self.conv_1 = nn.Conv2d(in_channels=n_filters, out_channels=n_filters, kernel_size=kernel_size, padding=1)
         self.conv_2 = nn.Conv2d(in_channels=n_filters, out_channels=n_filters, kernel_size=kernel_size, padding=1)
         self.conv_3 = nn.Conv2d(in_channels=n_filters, out_channels=n_filters, kernel_size=kernel_size, padding=1)
@@ -24,7 +24,7 @@ class CNNLearner(nn.Module):
         self.fc = nn.Linear(fc_in * fc_in * n_filters, output_dim)
 
     def forward(self, x):
-        out = self.conv_0(x)
+        out = self.conv_0(x.float())
         out = self.batch_norm_0(out)
         out = F.relu(out)
         out = F.max_pool2d(out, (2, 2))
