@@ -1,12 +1,15 @@
 import os
-import torch
 import random
-import numpy as np
+
 import PIL.Image as Image
+import numpy as np
+import torch
+import torchvision
 import torchvision.transforms as transforms
 
 
-class MetaDataset:
+# miniImagenet
+class MetaMINDataset:
     def __init__(self, root_dir, shots, evals, no_classes, transform=None, crop=128):
         """
         Creates a new instance of the MetaDataset class
@@ -74,3 +77,47 @@ class MetaDataset:
             all_images[dir] = class_images
 
         return all_images
+
+
+class MetaMNISTDataset:
+    def __init__(self, root_dir, shots, evals, no_classes, transform=None, crop=128):
+        self.root_dir = root_dir
+        self.shots = shots
+        self.evals = evals
+        self.no_classes = no_classes
+        self.transform = transform
+
+        if transform is None:
+        # transforms.Compose() object to be applied to each image
+            self.transform = torchvision.transforms.Compose([
+                               torchvision.transforms.ToTensor(),
+                               torchvision.transforms.Normalize(
+                                 (0.1307,), (0.3081,))
+                             ])
+
+        # obtain the mnist dataset
+        self.loader = torch.utils.data.DataLoader(
+            torchvision.datasets.MNIST(root_dir, download=True, transform=self.transform),
+            batch_size=(shots+evals)*no_classes * 3, shuffle=False)
+        self.examples = enumerate(self.loader)
+
+    def get_item(self):
+        # require shots + evals random images from each class
+
+        while (True):
+            batch_idx, (example_data, example_targets) = next(self.examples)
+            x_unique = example_targets.unique(sorted=True)
+            x_unique_count = torch.stack([(example_targets == x_u).sum() for x_u in x_unique])
+            if all(i >= (self.shots + self.evals) for i in x_unique_count):
+                break
+
+        sort_by_label = [x for _, x in sorted(zip(example_targets.tolist(), example_data.tolist()))]
+        x = np.reshape(sort_by_label, ((self.shots+self.evals)*self.no_classes * 3, 1, 28, 28))
+        trainlist = []
+        for i in range(10):
+            if i > 0:
+                i = sum(x_unique_count[:i])
+            trainlist.append(x[i:i + self.shots + self.evals])
+
+        trainlist = np.array(trainlist)
+        return torch.from_numpy(trainlist)
