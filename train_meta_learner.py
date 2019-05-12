@@ -27,9 +27,9 @@ parser.add_argument('-data_root', nargs='?', default='data/', type=str,
 args = parser.parse_args()
 
 if (args.data == 'MIN'):
-    TRAIN_PATH = os.path.join(args.root, 'train')
-    TEST_PATH = os.path.join(args.root, 'test')
-    VAL_PATH = os.path.join(args.root, 'val')
+    TRAIN_PATH = os.path.join(args.data_root, 'train')
+    TEST_PATH = os.path.join(args.data_root, 'test')
+    VAL_PATH = os.path.join(args.data_root, 'val')
 
 if (args.data == 'MNIST'):
     TRAIN_PATH = TEST_PATH = VAL_PATH = args.data_root  # co-located
