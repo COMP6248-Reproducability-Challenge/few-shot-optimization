@@ -70,7 +70,6 @@ class MetaMINDataset:
 
             current_path = os.path.join(self.root_dir, dir)
             image_names = os.listdir(current_path)
-            image_names = random.sample(image_names, self.shots + self.evals)
 
             for name in image_names:
                 image_path = os.path.join(current_path, name)
