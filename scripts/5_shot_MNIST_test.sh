@@ -8,4 +8,5 @@ python3 -u train_meta_learner.py \
     -classes 10 \
     -data_root ../data/ \
     -load_state mings10class5shot \
-    -channel gscale
+    -channel gscale \
+    -shots 5

@@ -29,6 +29,7 @@ parser.add_argument('-save_state', type=str,
 parser.add_argument('-load_state', type=str,
                     help='Name of file to load Metalearner parameters from.')
 parser.add_argument('-channel', nargs='?', default='rgb', type=str, help='rgb or gscale')
+parser.add_argument('-shots', nargs='?', default=5, type=int, help='number of shots to learn on')
 
 
 args = parser.parse_args()
@@ -47,7 +48,7 @@ EVAL_POINT = args.val
 
 EVALS = 15  # items used to test acc and loss
 CLASSES = args.classes  # number of classes we differentiate
-SHOTS = 5  # items used to train with for each class
+SHOTS = args.shots  # items used to train with for each class
 
 # Learner Network parameters
 FILTERS = 32
