@@ -1,16 +1,14 @@
-import argparse
-import copy
 import os
 import time
-
-import numpy as np
+import copy
 import torch
-import torchvision.transforms as transforms
-from sklearn.metrics import accuracy_score
-
+import argparse
 import CNNlearner
 import data_loader
 import meta_learner
+import numpy as np
+import torchvision.transforms as transforms
+from sklearn.metrics import accuracy_score
 
 # Argument parsing
 parser = argparse.ArgumentParser()
@@ -26,12 +24,12 @@ parser.add_argument('-data_root', nargs='?', default='data/', type=str,
                     help='Root for directory whether miniImagenet or other.')
 args = parser.parse_args()
 
-if (args.data == 'MIN'):
+if args.data == 'MIN':
     TRAIN_PATH = os.path.join(args.data_root, 'train')
     TEST_PATH = os.path.join(args.data_root, 'test')
     VAL_PATH = os.path.join(args.data_root, 'val')
 
-if (args.data == 'MNIST'):
+if args.data == 'MNIST':
     TRAIN_PATH = TEST_PATH = VAL_PATH = args.data_root  # co-located
 
 CUDA_NUM = args.cuda
@@ -132,7 +130,6 @@ def meta_test(val_dataset, learner, learner_wo_grad, metalearner):
     best_acc = 0
     for _ in range(VAL_ITERATIONS):
         # Get the data to train and test the model
-        print(".")
         x, y = val_dataset.get_item()
 
         train_x = x[:, :SHOTS].reshape((SHOTS * CLASSES,) + x.shape[2:]).to(device)
@@ -167,30 +164,51 @@ def meta_test(val_dataset, learner, learner_wo_grad, metalearner):
     return best_acc
 
 
-def main():
-    # Transforms for preprocessing the data
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+def get_datasets(args):
+    """
+    Returns the train and validation datasets for the selected task
+    """
+    if args.data == 'MNIST':
+        train = data_loader.MetaMNISTDataset(TRAIN_PATH, SHOTS, EVALS, CLASSES)
+        val = data_loader.MetaMNISTDataset(VAL_PATH, SHOTS, EVALS, CLASSES)
 
-    train_set_transform = transforms.Compose([transforms.RandomResizedCrop(CROPPED_IMAGE_SIZE),
-                                              transforms.RandomHorizontalFlip(),
-                                              transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4,
-                                                                     hue=0.2),
-                                              transforms.ToTensor(), normalize])
-    val_set_transform = transforms.Compose([transforms.Resize(CROPPED_IMAGE_SIZE * 8 // 7),
-                                            transforms.CenterCrop(CROPPED_IMAGE_SIZE),
-                                            transforms.ToTensor(), normalize])
+    else:  # miniImagenet by default
+        # Transforms for preprocessing the data
+        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
-    if args.data == 'MIN':  # miniImagenet
-        train_dataset = data_loader.MetaMINDataset(TRAIN_PATH, SHOTS, EVALS, CLASSES, train_set_transform,
+        train_set_transform = transforms.Compose([transforms.RandomResizedCrop(CROPPED_IMAGE_SIZE),
+                                                  transforms.RandomHorizontalFlip(),
+                                                  transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4,
+                                                                         hue=0.2),
+                                                  transforms.ToTensor(), normalize])
+        val_set_transform = transforms.Compose([transforms.Resize(CROPPED_IMAGE_SIZE * 8 // 7),
+                                                transforms.CenterCrop(CROPPED_IMAGE_SIZE),
+                                                transforms.ToTensor(), normalize])
+
+        train = data_loader.MetaMINDataset(TRAIN_PATH, SHOTS, EVALS, CLASSES, train_set_transform,
                                                    CROPPED_IMAGE_SIZE)
-        val_dataset = data_loader.MetaMINDataset(VAL_PATH, SHOTS, EVALS, CLASSES, val_set_transform, CROPPED_IMAGE_SIZE)
+        val = data_loader.MetaMINDataset(VAL_PATH, SHOTS, EVALS, CLASSES, val_set_transform, CROPPED_IMAGE_SIZE)
         learner = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, OUTPUT_DIM, BN_MOMENTUM).to(device)
 
+    return train, val
+
+
+def get_learner(args):
+    """
+    Returns the appropriate leaner for each task. Defaults to the MiniImageNet Learner
+    """
     if args.data == 'MNIST':
-        train_dataset = data_loader.MetaMNISTDataset(TRAIN_PATH, SHOTS, EVALS, CLASSES)
-        val_dataset = data_loader.MetaMNISTDataset(VAL_PATH, SHOTS, EVALS, CLASSES)
-        learner = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, CLASSES, BN_MOMENTUM, in_channels=1).to(
-            device)
+        network = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, CLASSES, BN_MOMENTUM, in_channels=1)\
+            .to(device)
+    else:
+        network = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, OUTPUT_DIM, BN_MOMENTUM).to(device)
+
+    return network
+
+
+def main():
+    train_dataset, val_dataset = get_datasets(args)
+    learner = get_learner(args)
 
     # Learner without gradient history
     grad_free_learner = copy.deepcopy(learner)
