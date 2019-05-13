@@ -3,9 +3,8 @@ python3 -u train_meta_learner.py \
     -its 10000\
     -cuda 0 \
     -val 1000 \
-    -test \
-    -data MNIST \
+    -data MIN \
     -classes 10 \
-    -data_root ../data/ \
-    -load_state mings10class5shot \
-    -channel gscale
+    -data_root ../data/miniImagenet/ \
+    -channel gscale \
+    -save_state mings10class5shot

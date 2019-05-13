@@ -52,8 +52,8 @@ class MetaMINDataset:
 
         data = torch.stack(sampled_images)
 
-        data = data.reshape((self.shots, self.shots + self.evals) + data.shape[1:])
-        labels = labels.reshape((self.shots, self.shots + self.evals))
+        data = data.reshape((self.no_classes, self.shots + self.evals) + data.shape[1:])
+        labels = labels.reshape((self.no_classes, self.shots + self.evals))
 
         return data, labels
 
@@ -92,18 +92,18 @@ class MetaMNISTDataset:
         self.transform = transform
 
         if transform is None:
-        # transforms.Compose() object to be applied to each image
+            # transforms.Compose() object to be applied to each image
             self.transform = torchvision.transforms.Compose([
                 transforms.Resize((crop, crop)),
-                               torchvision.transforms.ToTensor(),
-                               torchvision.transforms.Normalize(
-                                 (0.1307,), (0.3081,))
-                             ])
+                torchvision.transforms.ToTensor(),
+                torchvision.transforms.Normalize(
+                    (0.1307,), (0.3081,))
+            ])
 
         # obtain the mnist dataset
         self.loader = torch.utils.data.DataLoader(
             torchvision.datasets.MNIST(root_dir, download=True, transform=self.transform),
-            batch_size=(shots+evals)*no_classes * 3, shuffle=False)
+            batch_size=(shots + evals) * no_classes * 3, shuffle=False)
         self.examples = enumerate(self.loader)
 
     def get_item(self):
@@ -116,7 +116,7 @@ class MetaMNISTDataset:
                 break
 
         sort_by_label = [x for _, x in sorted(zip(example_targets.tolist(), example_data.tolist()))]
-        x = np.reshape(sort_by_label, ((self.shots+self.evals)*self.no_classes * 3, 1, 84, 84))
+        x = np.reshape(sort_by_label, ((self.shots + self.evals) * self.no_classes * 3, 1, 84, 84))
         trainlist = []
         for i in range(10):
             if i > 0:

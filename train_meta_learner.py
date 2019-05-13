@@ -24,6 +24,13 @@ parser.add_argument('-classes', nargs='?', default=5, type=int,
                     help='Number of classes, dictates output dims for classifier')
 parser.add_argument('-data_root', nargs='?', default='data/', type=str,
                     help='Root for directory whether miniImagenet or other.')
+parser.add_argument('-save_state', type=str,
+                    help='Name of file to save Metalearner parameters into.')
+parser.add_argument('-load_state', type=str,
+                    help='Name of file to load Metalearner parameters from.')
+parser.add_argument('-channel', nargs='?', default='rgb', type=str, help='rgb or gscale')
+
+
 args = parser.parse_args()
 
 if (args.data == 'MIN'):
@@ -45,7 +52,8 @@ SHOTS = 5  # items used to train with for each class
 # Learner Network parameters
 FILTERS = 32
 KERNEL_SIZE = 3
-OUTPUT_DIM = 5
+INPUT_DIM = 3 if args.channel=='rgb' else 1
+OUTPUT_DIM = args.classes
 BN_MOMENTUM = 0.95
 CROPPED_IMAGE_SIZE = 84
 
@@ -132,7 +140,6 @@ def meta_test(val_dataset, learner, learner_wo_grad, metalearner):
     best_acc = 0
     for _ in range(VAL_ITERATIONS):
         # Get the data to train and test the model
-        print(".")
         x, y = val_dataset.get_item()
 
         train_x = x[:, :SHOTS].reshape((SHOTS * CLASSES,) + x.shape[2:]).to(device)
@@ -169,27 +176,39 @@ def meta_test(val_dataset, learner, learner_wo_grad, metalearner):
 
 def main():
     # Transforms for preprocessing the data
-    normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-
-    train_set_transform = transforms.Compose([transforms.RandomResizedCrop(CROPPED_IMAGE_SIZE),
-                                              transforms.RandomHorizontalFlip(),
-                                              transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4,
-                                                                     hue=0.2),
-                                              transforms.ToTensor(), normalize])
-    val_set_transform = transforms.Compose([transforms.Resize(CROPPED_IMAGE_SIZE * 8 // 7),
-                                            transforms.CenterCrop(CROPPED_IMAGE_SIZE),
-                                            transforms.ToTensor(), normalize])
+    if INPUT_DIM == 3:
+        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        train_set_transform = transforms.Compose([transforms.RandomResizedCrop(CROPPED_IMAGE_SIZE),
+                                                  transforms.RandomHorizontalFlip(),
+                                                  transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4,
+                                                                         hue=0.2),
+                                                  transforms.ToTensor(), normalize])
+        val_set_transform = transforms.Compose([transforms.Resize(CROPPED_IMAGE_SIZE * 8 // 7),
+                                                transforms.CenterCrop(CROPPED_IMAGE_SIZE),
+                                                transforms.ToTensor(), normalize])
+    elif INPUT_DIM == 1:
+        normalize = transforms.Normalize([0.5], [0.5])
+        train_set_transform = transforms.Compose([transforms.RandomResizedCrop(CROPPED_IMAGE_SIZE),
+                                                  transforms.RandomHorizontalFlip(),
+                                                  transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4,
+                                                                         hue=0.2),
+                                                  transforms.Grayscale(),
+                                                  transforms.ToTensor(), normalize])
+        val_set_transform = transforms.Compose([transforms.Resize(CROPPED_IMAGE_SIZE * 8 // 7),
+                                                transforms.CenterCrop(CROPPED_IMAGE_SIZE),
+                                                transforms.Grayscale(),
+                                                transforms.ToTensor(), normalize])
 
     if args.data == 'MIN':  # miniImagenet
         train_dataset = data_loader.MetaMINDataset(TRAIN_PATH, SHOTS, EVALS, CLASSES, train_set_transform,
                                                    CROPPED_IMAGE_SIZE)
         val_dataset = data_loader.MetaMINDataset(VAL_PATH, SHOTS, EVALS, CLASSES, val_set_transform, CROPPED_IMAGE_SIZE)
-        learner = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, OUTPUT_DIM, BN_MOMENTUM).to(device)
+        learner = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, OUTPUT_DIM, BN_MOMENTUM, in_channels=INPUT_DIM).to(device)
 
     if args.data == 'MNIST':
         train_dataset = data_loader.MetaMNISTDataset(TRAIN_PATH, SHOTS, EVALS, CLASSES)
         val_dataset = data_loader.MetaMNISTDataset(VAL_PATH, SHOTS, EVALS, CLASSES)
-        learner = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, CLASSES, BN_MOMENTUM, in_channels=1).to(
+        learner = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, OUTPUT_DIM, BN_MOMENTUM, in_channels=INPUT_DIM).to(
             device)
 
     # Learner without gradient history
@@ -203,6 +222,9 @@ def main():
     learner_loss_function = torch.nn.CrossEntropyLoss().to(device)
 
     if args.test:
+        if args.load_state != None:
+            metalearner.load_state_dict(torch.load(args.load_state))
+
         best_acc = meta_test(val_dataset, learner, grad_free_learner, metalearner)
         print("Best Accuracy {:.4f} | Time: {}".format(best_acc, time.time()))
         quit()
@@ -243,6 +265,7 @@ def main():
 
         # Meta-validation
         if it % EVAL_POINT == 0 or it == (ITERATIONS - 1):
+            torch.save(metalearner.state_dict(), args.save_state)
             val_acc = meta_test(val_dataset, learner, grad_free_learner, metalearner)
             print("Iteration {} | Training Accuracy {:.4f} | Best Validation Accuracy {:.4f} | Time: {}".
                   format(it, train_acc, val_acc, time.time()))
