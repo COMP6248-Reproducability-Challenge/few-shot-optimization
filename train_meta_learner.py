@@ -164,11 +164,11 @@ def meta_test(val_dataset, learner, learner_wo_grad, metalearner):
     return best_acc
 
 
-def get_datasets(args):
+def get_datasets(dataset):
     """
     Returns the train and validation datasets for the selected task
     """
-    if args.data == 'MNIST':
+    if dataset == 'MNIST':
         train = data_loader.MetaMNISTDataset(TRAIN_PATH, SHOTS, EVALS, CLASSES)
         val = data_loader.MetaMNISTDataset(VAL_PATH, SHOTS, EVALS, CLASSES)
 
@@ -193,11 +193,11 @@ def get_datasets(args):
     return train, val
 
 
-def get_learner(args):
+def get_learner(dataset):
     """
     Returns the appropriate leaner for each task. Defaults to the MiniImageNet Learner
     """
-    if args.data == 'MNIST':
+    if dataset == 'MNIST':
         network = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, CLASSES, BN_MOMENTUM, in_channels=1)\
             .to(device)
     else:
@@ -207,8 +207,8 @@ def get_learner(args):
 
 
 def main():
-    train_dataset, val_dataset = get_datasets(args)
-    learner = get_learner(args)
+    train_dataset, val_dataset = get_datasets(args.data)
+    learner = get_learner(args.data)
 
     # Learner without gradient history
     grad_free_learner = copy.deepcopy(learner)
