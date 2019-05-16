@@ -38,7 +38,7 @@ EVAL_POINT = args.val
 
 EVALS = 15  # items used to test acc and loss
 CLASSES = args.classes  # number of classes we differentiate
-SHOTS = 5  # items used to train with for each class
+SHOTS = 1  # items used to train with for each class
 
 # Learner Network parameters
 FILTERS = 32

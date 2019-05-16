@@ -50,8 +50,8 @@ class MetaMINDataset:
 
         data = torch.stack(sampled_images)
 
-        data = data.reshape((self.shots, self.shots + self.evals) + data.shape[1:])
-        labels = labels.reshape((self.shots, self.shots + self.evals))
+        data = data.reshape((self.no_classes, self.shots + self.evals) + data.shape[1:])
+        labels = labels.reshape((self.no_classes, self.shots + self.evals))
 
         return data, labels
 
