@@ -29,7 +29,6 @@ parser.add_argument('-load_state', type=str,
 parser.add_argument('-channel', nargs='?', default='rgb', type=str, help='rgb or gscale')
 parser.add_argument('-shots', nargs='?', default=5, type=int, help='number of shots to learn on')
 
-
 args = parser.parse_args()
 
 if args.data == 'MIN':
@@ -51,7 +50,7 @@ SHOTS = args.shots  # items used to train with for each class
 # Learner Network parameters
 FILTERS = 32
 KERNEL_SIZE = 3
-INPUT_DIM = 3 if args.channel=='rgb' else 1
+INPUT_DIM = 3 if args.channel == 'rgb' else 1
 OUTPUT_DIM = args.classes
 BN_MOMENTUM = 0.95
 CROPPED_IMAGE_SIZE = 84
@@ -172,6 +171,7 @@ def meta_test(val_dataset, learner, learner_wo_grad, metalearner):
 
     return best_acc
 
+
 def get_datasets(dataset):
     """
     Returns the train and validation datasets for the selected task
@@ -184,28 +184,29 @@ def get_datasets(dataset):
         # Transforms for preprocessing the data
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
-	train_set_transform = transforms.Compose([transforms.RandomResizedCrop(CROPPED_IMAGE_SIZE),
+        train_set_transform = transforms.Compose([transforms.RandomResizedCrop(CROPPED_IMAGE_SIZE),
                                                   transforms.RandomHorizontalFlip(),
                                                   transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4,
                                                                          hue=0.2),
                                                   transforms.ToTensor(), normalize])
-	val_set_transform = transforms.Compose([transforms.Resize(CROPPED_IMAGE_SIZE * 8 // 7),
+        val_set_transform = transforms.Compose([transforms.Resize(CROPPED_IMAGE_SIZE * 8 // 7),
                                                 transforms.CenterCrop(CROPPED_IMAGE_SIZE),
                                                 transforms.ToTensor(), normalize])
 
         train = data_loader.MetaMINDataset(TRAIN_PATH, SHOTS, EVALS, CLASSES, train_set_transform,
-                                                   CROPPED_IMAGE_SIZE)
+                                           CROPPED_IMAGE_SIZE)
         val = data_loader.MetaMINDataset(VAL_PATH, SHOTS, EVALS, CLASSES, val_set_transform, CROPPED_IMAGE_SIZE)
         learner = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, OUTPUT_DIM, BN_MOMENTUM).to(device)
 
     return train, val
+
 
 def get_learner(dataset):
     """
     Returns the appropriate leaner for each task. Defaults to the MiniImageNet Learner
     """
     if dataset == 'MNIST':
-        network = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, CLASSES, BN_MOMENTUM, in_channels=1)\
+        network = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, CLASSES, BN_MOMENTUM, in_channels=1) \
             .to(device)
     else:
         network = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, OUTPUT_DIM, BN_MOMENTUM).to(device)
@@ -217,7 +218,7 @@ def main():
     # Transforms for preprocessing the data
     if INPUT_DIM == 3:
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-	train_set_transform = transforms.Compose([transforms.RandomResizedCrop(CROPPED_IMAGE_SIZE),
+        train_set_transform = transforms.Compose([transforms.RandomResizedCrop(CROPPED_IMAGE_SIZE),
                                                   transforms.RandomHorizontalFlip(),
                                                   transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4,
                                                                          hue=0.2),
@@ -243,12 +244,14 @@ def main():
         train_dataset = data_loader.MetaMINDataset(TRAIN_PATH, SHOTS, EVALS, CLASSES, train_set_transform,
                                                    CROPPED_IMAGE_SIZE)
         val_dataset = data_loader.MetaMINDataset(VAL_PATH, SHOTS, EVALS, CLASSES, val_set_transform, CROPPED_IMAGE_SIZE)
-        learner = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, OUTPUT_DIM, BN_MOMENTUM, in_channels=INPUT_DIM).to(device)
+        learner = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, OUTPUT_DIM, BN_MOMENTUM,
+                                        in_channels=INPUT_DIM).to(device)
 
     if args.data == 'MNIST':
         train_dataset = data_loader.MetaMNISTDataset(TRAIN_PATH, SHOTS, EVALS, CLASSES)
         val_dataset = data_loader.MetaMNISTDataset(VAL_PATH, SHOTS, EVALS, CLASSES)
-        learner = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, OUTPUT_DIM, BN_MOMENTUM, in_channels=INPUT_DIM).to(
+        learner = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, OUTPUT_DIM, BN_MOMENTUM,
+                                        in_channels=INPUT_DIM).to(
             device)
 
     # Learner without gradient history
