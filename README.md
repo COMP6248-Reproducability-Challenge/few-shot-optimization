@@ -20,13 +20,5 @@ Note: save state in the first script must be the same as the loadstate in the se
 ## Authors
 
 * **Aran Smith** [abs2n18@soton.ac.uk]()
-* **Juan Olloniego** []()
-* **Sulaiman Sadiq** []()
-
-See also the list of [contributors](https://github.com/your/project/contributors) who participated in this project.
-
-## Acknowledgments
-
-* Hat tip to anyone whose code was used
-* Inspiration
-* etc
+* **Juan Olloniego** [jao1n18@soton.ac.uk]()
+* **Sulaiman Sadiq** [ss2n18@soton.ac.uk]()
