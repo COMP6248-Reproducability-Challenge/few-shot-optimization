@@ -14,7 +14,6 @@ Note: save state in the first script must be the same as the loadstate in the se
 ```
 ./scripts/10_class_1_channel_5_shot_MIN.sh
 ./scripts/5_shot_MNIST_test.sh 
-
 ```
 
 ## Authors
