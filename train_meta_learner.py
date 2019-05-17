@@ -1,16 +1,14 @@
-import argparse
-import copy
 import os
 import time
-
-import numpy as np
+import copy
 import torch
-import torchvision.transforms as transforms
-from sklearn.metrics import accuracy_score
-
+import argparse
 import CNNlearner
 import data_loader
 import meta_learner
+import numpy as np
+import torchvision.transforms as transforms
+from sklearn.metrics import accuracy_score
 
 # Argument parsing
 parser = argparse.ArgumentParser()
@@ -34,12 +32,12 @@ parser.add_argument('-shots', nargs='?', default=5, type=int, help='number of sh
 
 args = parser.parse_args()
 
-if (args.data == 'MIN'):
+if args.data == 'MIN':
     TRAIN_PATH = os.path.join(args.data_root, 'train')
     TEST_PATH = os.path.join(args.data_root, 'test')
     VAL_PATH = os.path.join(args.data_root, 'val')
 
-if (args.data == 'MNIST'):
+if args.data == 'MNIST':
     TRAIN_PATH = TEST_PATH = VAL_PATH = args.data_root  # co-located
 
 CUDA_NUM = args.cuda
@@ -174,12 +172,52 @@ def meta_test(val_dataset, learner, learner_wo_grad, metalearner):
 
     return best_acc
 
+def get_datasets(dataset):
+    """
+    Returns the train and validation datasets for the selected task
+    """
+    if dataset == 'MNIST':
+        train = data_loader.MetaMNISTDataset(TRAIN_PATH, SHOTS, EVALS, CLASSES)
+        val = data_loader.MetaMNISTDataset(VAL_PATH, SHOTS, EVALS, CLASSES)
+
+    else:  # miniImagenet by default
+        # Transforms for preprocessing the data
+        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+
+	train_set_transform = transforms.Compose([transforms.RandomResizedCrop(CROPPED_IMAGE_SIZE),
+                                                  transforms.RandomHorizontalFlip(),
+                                                  transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4,
+                                                                         hue=0.2),
+                                                  transforms.ToTensor(), normalize])
+	val_set_transform = transforms.Compose([transforms.Resize(CROPPED_IMAGE_SIZE * 8 // 7),
+                                                transforms.CenterCrop(CROPPED_IMAGE_SIZE),
+                                                transforms.ToTensor(), normalize])
+
+        train = data_loader.MetaMINDataset(TRAIN_PATH, SHOTS, EVALS, CLASSES, train_set_transform,
+                                                   CROPPED_IMAGE_SIZE)
+        val = data_loader.MetaMINDataset(VAL_PATH, SHOTS, EVALS, CLASSES, val_set_transform, CROPPED_IMAGE_SIZE)
+        learner = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, OUTPUT_DIM, BN_MOMENTUM).to(device)
+
+    return train, val
+
+def get_learner(dataset):
+    """
+    Returns the appropriate leaner for each task. Defaults to the MiniImageNet Learner
+    """
+    if dataset == 'MNIST':
+        network = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, CLASSES, BN_MOMENTUM, in_channels=1)\
+            .to(device)
+    else:
+        network = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, OUTPUT_DIM, BN_MOMENTUM).to(device)
+
+    return network
+
 
 def main():
     # Transforms for preprocessing the data
     if INPUT_DIM == 3:
         normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        train_set_transform = transforms.Compose([transforms.RandomResizedCrop(CROPPED_IMAGE_SIZE),
+	train_set_transform = transforms.Compose([transforms.RandomResizedCrop(CROPPED_IMAGE_SIZE),
                                                   transforms.RandomHorizontalFlip(),
                                                   transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4,
                                                                          hue=0.2),
@@ -187,6 +225,7 @@ def main():
         val_set_transform = transforms.Compose([transforms.Resize(CROPPED_IMAGE_SIZE * 8 // 7),
                                                 transforms.CenterCrop(CROPPED_IMAGE_SIZE),
                                                 transforms.ToTensor(), normalize])
+
     elif INPUT_DIM == 1:
         normalize = transforms.Normalize([0.5], [0.5])
         train_set_transform = transforms.Compose([transforms.RandomResizedCrop(CROPPED_IMAGE_SIZE),

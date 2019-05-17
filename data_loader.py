@@ -1,18 +1,16 @@
 import os
-import random
-
-import PIL.Image as Image
-import numpy as np
 import torch
+import random
 import torchvision
+import numpy as np
+import PIL.Image as Image
 import torchvision.transforms as transforms
 
 
-# miniImagenet
 class MetaMINDataset:
     def __init__(self, root_dir, shots, evals, no_classes, transform=None, crop=128):
         """
-        Creates a new instance of the MetaDataset class
+        Creates a new instance of the MiniImageNet MetaDataset class
         :param root_dir: string, images root directory
         :param shots: int k, for the k-shot classification task (i.e., 1-shot, 5-shot)
         :param evals: int, number of examples to use for testing purposes
@@ -108,7 +106,7 @@ class MetaMNISTDataset:
 
     def get_item(self):
         # require shots + evals random images from each class
-        while (True):
+        while True:
             batch_idx, (example_data, example_targets) = next(self.examples)
             x_unique = example_targets.unique(sorted=True)
             x_unique_count = torch.stack([(example_targets == x_u).sum() for x_u in x_unique])
