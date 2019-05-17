@@ -47,6 +47,7 @@ EVALS = 15  # items used to test acc and loss
 CLASSES = args.classes  # number of classes we differentiate
 SHOTS = args.shots  # items used to train with for each class
 
+
 # Learner Network parameters
 FILTERS = 32
 KERNEL_SIZE = 3
@@ -196,7 +197,6 @@ def get_datasets(dataset):
         train = data_loader.MetaMINDataset(TRAIN_PATH, SHOTS, EVALS, CLASSES, train_set_transform,
                                            CROPPED_IMAGE_SIZE)
         val = data_loader.MetaMINDataset(VAL_PATH, SHOTS, EVALS, CLASSES, val_set_transform, CROPPED_IMAGE_SIZE)
-        learner = CNNlearner.CNNLearner(CROPPED_IMAGE_SIZE, FILTERS, KERNEL_SIZE, OUTPUT_DIM, BN_MOMENTUM).to(device)
 
     return train, val
 
