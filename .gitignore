@@ -1,5 +1,3 @@
-!outputs/*.txt
-
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
@@ -114,3 +112,6 @@ venv.bak/
 .idea/*
 data/*
 *.txt
+
+!outputs/*.txt
+
