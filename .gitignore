@@ -112,3 +112,6 @@ venv.bak/
 .idea/*
 data/*
 *.txt
+
+!outputs/*.txt
+
