@@ -6,7 +6,7 @@ python3 -u train_meta_learner.py \
     -test \
     -data MNIST \
     -classes 10 \
-    -data_root ../data/ \
+    -data_root data/ \
     -load_state mings10class10shot \
     -channel gscale \
     -shots 10
